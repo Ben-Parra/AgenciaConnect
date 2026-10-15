@@ -3,7 +3,6 @@ package cl.duoc.agenciaconnect
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,29 +31,23 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import cl.duoc.agenciaconnect.ui.eventos.EventosScreen
+import cl.duoc.agenciaconnect.ui.login.LoginViewModel
 import cl.duoc.agenciaconnect.ui.theme.AgenciaConnectTheme
-
-// Con estas constantes definimos las credenciales genéricas
-// que utilizaremos durante la demostración académica.
-private const val USUARIO_ADMIN = "admin"
-private const val CLAVE_ADMIN = "admin123"
 
 // Con esta actividad preparamos la aplicación y coordinamos
 // la navegación entre el inicio, el acceso y la administración.
 class MainActivity : ComponentActivity() {
 
-    // Con esta función iniciamos la interfaz de la aplicación.
+    // Con esta función iniciamos la interfaz principal de la aplicación.
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
 
         setContent {
             AgenciaConnectTheme {
                 var pantalla by remember { mutableStateOf("inicio") }
-                var usuario by remember { mutableStateOf("") }
-                var contrasena by remember { mutableStateOf("") }
-                var mensajeError by remember { mutableStateOf("") }
 
                 Scaffold(
                     modifier = Modifier.fillMaxSize()
@@ -62,43 +55,20 @@ class MainActivity : ComponentActivity() {
                     Surface(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(innerPadding),
-                        color = MaterialTheme.colorScheme.background
+                            .padding(innerPadding)
                     ) {
                         when (pantalla) {
                             "inicio" -> PantallaInicio(
                                 onAccesoAdmin = {
-                                    mensajeError = ""
                                     pantalla = "login"
                                 }
                             )
 
                             "login" -> PantallaLoginAdmin(
-                                usuario = usuario,
-                                contrasena = contrasena,
-                                mensajeError = mensajeError,
-                                onUsuarioChange = {
-                                    usuario = it
-                                    mensajeError = ""
-                                },
-                                onContrasenaChange = {
-                                    contrasena = it
-                                    mensajeError = ""
-                                },
-                                onIngresar = {
-                                    if (
-                                        usuario.trim() == USUARIO_ADMIN &&
-                                        contrasena == CLAVE_ADMIN
-                                    ) {
-                                        mensajeError = ""
-                                        pantalla = "admin"
-                                    } else {
-                                        mensajeError =
-                                            "Usuario o contraseña incorrectos."
-                                    }
+                                onAccesoCorrecto = {
+                                    pantalla = "admin"
                                 },
                                 onVolver = {
-                                    mensajeError = ""
                                     pantalla = "inicio"
                                 }
                             )
@@ -108,9 +78,6 @@ class MainActivity : ComponentActivity() {
                                     pantalla = "eventos"
                                 },
                                 onCerrarSesion = {
-                                    usuario = ""
-                                    contrasena = ""
-                                    mensajeError = ""
                                     pantalla = "inicio"
                                 }
                             )
@@ -178,18 +145,16 @@ fun PantallaInicio(
     }
 }
 
-// Con esta función mostramos el formulario de acceso y
-// permitimos validar las credenciales del administrador.
+// Con esta función mostramos el formulario de acceso y delegamos
+// la validación de las credenciales al LoginViewModel.
 @Composable
 fun PantallaLoginAdmin(
-    usuario: String,
-    contrasena: String,
-    mensajeError: String,
-    onUsuarioChange: (String) -> Unit,
-    onContrasenaChange: (String) -> Unit,
-    onIngresar: () -> Unit,
-    onVolver: () -> Unit
+    onAccesoCorrecto: () -> Unit,
+    onVolver: () -> Unit,
+    loginViewModel: LoginViewModel = viewModel()
 ) {
+    val uiState by loginViewModel.uiState.collectAsStateWithLifecycle()
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -206,31 +171,41 @@ fun PantallaLoginAdmin(
         Spacer(modifier = Modifier.height(24.dp))
 
         OutlinedTextField(
-            value = usuario,
-            onValueChange = onUsuarioChange,
+            value = uiState.usuario,
+            onValueChange = loginViewModel::cambiarUsuario,
             label = { Text("Usuario") },
             singleLine = true,
-            isError = mensajeError.isNotBlank(),
+            isError = uiState.errorUsuario,
+            supportingText = {
+                if (uiState.errorUsuario) {
+                    Text("Ingresa tu usuario de administrador.")
+                }
+            },
             modifier = Modifier.fillMaxWidth()
         )
 
         Spacer(modifier = Modifier.height(12.dp))
 
         OutlinedTextField(
-            value = contrasena,
-            onValueChange = onContrasenaChange,
+            value = uiState.contrasena,
+            onValueChange = loginViewModel::cambiarContrasena,
             label = { Text("Contraseña") },
             singleLine = true,
             visualTransformation = PasswordVisualTransformation(),
-            isError = mensajeError.isNotBlank(),
+            isError = uiState.errorContrasena,
+            supportingText = {
+                if (uiState.errorContrasena) {
+                    Text("Ingresa tu contraseña.")
+                }
+            },
             modifier = Modifier.fillMaxWidth()
         )
 
-        if (mensajeError.isNotBlank()) {
+        if (uiState.mensajeError.isNotBlank()) {
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = mensajeError,
+                text = uiState.mensajeError,
                 color = MaterialTheme.colorScheme.error
             )
         }
@@ -238,7 +213,12 @@ fun PantallaLoginAdmin(
         Spacer(modifier = Modifier.height(24.dp))
 
         Button(
-            onClick = onIngresar,
+            onClick = {
+                if (loginViewModel.iniciarSesion()) {
+                    loginViewModel.limpiarFormulario()
+                    onAccesoCorrecto()
+                }
+            },
             modifier = Modifier.fillMaxWidth()
         ) {
             Text("Ingresar")
@@ -246,7 +226,12 @@ fun PantallaLoginAdmin(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        TextButton(onClick = onVolver) {
+        TextButton(
+            onClick = {
+                loginViewModel.limpiarFormulario()
+                onVolver()
+            }
+        ) {
             Text("Volver al inicio")
         }
     }
