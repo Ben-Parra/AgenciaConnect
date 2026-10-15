@@ -36,6 +36,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import cl.duoc.agenciaconnect.ui.eventos.EventosScreen
 import cl.duoc.agenciaconnect.ui.login.LoginViewModel
 import cl.duoc.agenciaconnect.ui.theme.AgenciaConnectTheme
+import cl.duoc.agenciaconnect.ui.eventos.EventosRegistradosScreen
 
 // Con esta actividad preparamos la aplicación y coordinamos
 // la navegación entre el inicio, el acceso y la administración.
@@ -85,6 +86,18 @@ class MainActivity : ComponentActivity() {
                             "eventos" -> EventosScreen(
                                 onVolver = {
                                     pantalla = "admin"
+                                },
+                                onVerEventos = {
+                                    pantalla = "eventos_registrados"
+                                }
+                            )
+
+                            "eventos_registrados" -> EventosRegistradosScreen(
+                                onVolverFormulario = {
+                                    pantalla = "eventos"
+                                },
+                                onEditarEvento = {
+                                    pantalla = "eventos"
                                 }
                             )
                         }

@@ -1,26 +1,20 @@
 package cl.duoc.agenciaconnect.ui.eventos
 
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -31,10 +25,14 @@ import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 
 // Con esta clase mostramos las barras de la fecha sin modificar
 // los dígitos originales ni desordenar la posición del cursor.
 private class FechaVisualTransformation : VisualTransformation {
+
+    // Con esta función presentamos la fecha con el formato DD/MM/AAAA.
     override fun filter(text: AnnotatedString): TransformedText {
         val original = text.text
 
@@ -46,6 +44,8 @@ private class FechaVisualTransformation : VisualTransformation {
         }
 
         val desplazamiento = object : OffsetMapping {
+
+            // Con esta función ajustamos el cursor al mostrar las barras.
             override fun originalToTransformed(offset: Int): Int {
                 return when {
                     offset <= 2 -> offset
@@ -54,6 +54,8 @@ private class FechaVisualTransformation : VisualTransformation {
                 }.coerceAtMost(formateado.length)
             }
 
+            // Con esta función relacionamos la posición visual del cursor
+            // con la posición real del texto que estamos escribiendo.
             override fun transformedToOriginal(offset: Int): Int {
                 return when {
                     offset <= 2 -> offset
@@ -70,28 +72,39 @@ private class FechaVisualTransformation : VisualTransformation {
     }
 }
 
-// Con esta pantalla mostramos el formulario y la lista de eventos,
-// utilizando el ViewModel para centralizar los datos y las operaciones.
+// Con esta pantalla presentamos únicamente el formulario
+// para registrar eventos o modificar los que ya existen.
 @Composable
 fun EventosScreen(
     onVolver: () -> Unit,
+    onVerEventos: () -> Unit,
     viewModel: EventoViewModel = viewModel()
 ) {
-    // Con este estado observamos los cambios realizados en el ViewModel.
+    // Con este estado observamos los datos y errores del formulario.
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp)
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
-            text = "Gestión de eventos",
+            text = if (uiState.idEnEdicion == null) {
+                "Registrar evento"
+            } else {
+                "Editar evento"
+            },
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = "Ingresa los datos del evento corporativo."
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
 
         // Con estos campos ingresamos los datos del evento
         // y mostramos los errores específicos de cada campo.
@@ -169,9 +182,10 @@ fun EventosScreen(
             singleLine = true
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
-        // Con este botón registramos el evento o guardamos sus cambios.
+        // Con este botón guardamos un evento nuevo
+        // o actualizamos los datos del evento que estamos editando.
         Button(
             onClick = { viewModel.guardarEvento() },
             modifier = Modifier.fillMaxWidth()
@@ -185,7 +199,7 @@ fun EventosScreen(
             )
         }
 
-        // Con este botón cancelamos una edición sin modificar el registro.
+        // Con este botón cancelamos una edición sin guardar cambios.
         if (uiState.idEnEdicion != null) {
             OutlinedButton(
                 onClick = { viewModel.cancelarEdicion() },
@@ -195,121 +209,21 @@ fun EventosScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            text = "Eventos registrados: ${uiState.eventos.size}",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Con esta lista mostramos los eventos registrados y sus acciones.
-        LazyColumn(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+        // Con este botón abrimos la pantalla independiente
+        // donde consultamos y administramos los eventos registrados.
+        OutlinedButton(
+            onClick = onVerEventos,
+            modifier = Modifier.fillMaxWidth()
         ) {
-            items(
-                items = uiState.eventos,
-                key = { evento -> evento.id }
-            ) { evento ->
-                Card(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(12.dp)
-                    ) {
-                        Text(
-                            text = evento.nombre,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-
-                        Text("Descripción: ${evento.descripcion}")
-
-                        val fechaVisible = if (evento.fecha.length == 8) {
-                            "${evento.fecha.substring(0, 2)}/" +
-                                    "${evento.fecha.substring(2, 4)}/" +
-                                    evento.fecha.substring(4, 8)
-                        } else {
-                            evento.fecha
-                        }
-
-                        Text("Fecha: $fechaVisible")
-                        Text("Ubicación: ${evento.ubicacion}")
-                        Text("Organización: ${evento.organizacion}")
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            OutlinedButton(
-                                onClick = {
-                                    viewModel.cargarEventoParaEditar(evento)
-                                },
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text("Editar")
-                            }
-
-                            Button(
-                                onClick = {
-                                    viewModel.solicitarEliminar(evento)
-                                },
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text("Eliminar")
-                            }
-                        }
-                    }
-                }
-            }
+            Text("Ver eventos registrados (${uiState.eventos.size})")
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Con este botón regresamos a la pantalla anterior.
+        // Con este botón regresamos al panel administrativo.
         OutlinedButton(
             onClick = onVolver,
             modifier = Modifier.fillMaxWidth()
         ) {
             Text("Volver al panel")
         }
-    }
-
-    // Con este diálogo solicitamos confirmación antes de eliminar un evento.
-    uiState.eventoPorEliminar?.let { evento ->
-        AlertDialog(
-            onDismissRequest = {
-                viewModel.cancelarEliminar()
-            },
-            title = {
-                Text("Eliminar evento")
-            },
-            text = {
-                Text("¿Deseas eliminar el evento \"${evento.nombre}\"?")
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.confirmarEliminar()
-                    }
-                ) {
-                    Text("Eliminar")
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.cancelarEliminar()
-                    }
-                ) {
-                    Text("Cancelar")
-                }
-            }
-        )
     }
 }
