@@ -1,4 +1,5 @@
 plugins {
+    alias(libs.plugins.ksp)
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
 }
@@ -37,6 +38,9 @@ android {
 }
 
 dependencies {
+    ksp(libs.androidx.room.compiler)
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.11.0")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.11.0")
     implementation(platform(libs.androidx.compose.bom))
