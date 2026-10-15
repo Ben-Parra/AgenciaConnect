@@ -1,4 +1,3 @@
-
 package cl.duoc.agenciaconnect
 
 import android.os.Bundle
@@ -20,6 +19,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -32,6 +32,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import cl.duoc.agenciaconnect.ui.eventos.EventosScreen
 import cl.duoc.agenciaconnect.ui.theme.AgenciaConnectTheme
 
 // Con estas constantes definimos las credenciales genéricas
@@ -39,36 +40,25 @@ import cl.duoc.agenciaconnect.ui.theme.AgenciaConnectTheme
 private const val USUARIO_ADMIN = "admin"
 private const val CLAVE_ADMIN = "admin123"
 
+// Con esta actividad preparamos la aplicación y coordinamos
+// la navegación entre el inicio, el acceso y la administración.
 class MainActivity : ComponentActivity() {
 
-    // Con esta función preparamos la interfaz principal
-    // y controlamos qué pantalla mostramos al usuario.
+    // Con esta función iniciamos la interfaz de la aplicación.
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
         setContent {
             AgenciaConnectTheme {
-                var pantalla by remember {
-                    mutableStateOf("inicio")
-                }
-
-                var usuario by remember {
-                    mutableStateOf("")
-                }
-
-                var contrasena by remember {
-                    mutableStateOf("")
-                }
-
-                var mensajeError by remember {
-                    mutableStateOf("")
-                }
+                var pantalla by remember { mutableStateOf("inicio") }
+                var usuario by remember { mutableStateOf("") }
+                var contrasena by remember { mutableStateOf("") }
+                var mensajeError by remember { mutableStateOf("") }
 
                 Scaffold(
                     modifier = Modifier.fillMaxSize()
                 ) { innerPadding ->
-
                     Surface(
                         modifier = Modifier
                             .fillMaxSize()
@@ -76,7 +66,6 @@ class MainActivity : ComponentActivity() {
                         color = MaterialTheme.colorScheme.background
                     ) {
                         when (pantalla) {
-
                             "inicio" -> PantallaInicio(
                                 onAccesoAdmin = {
                                     mensajeError = ""
@@ -115,11 +104,20 @@ class MainActivity : ComponentActivity() {
                             )
 
                             "admin" -> PantallaAdmin(
+                                onGestionarEventos = {
+                                    pantalla = "eventos"
+                                },
                                 onCerrarSesion = {
                                     usuario = ""
                                     contrasena = ""
                                     mensajeError = ""
                                     pantalla = "inicio"
+                                }
+                            )
+
+                            "eventos" -> EventosScreen(
+                                onVolver = {
+                                    pantalla = "admin"
                                 }
                             )
                         }
@@ -180,8 +178,8 @@ fun PantallaInicio(
     }
 }
 
-// Con esta función mostramos el formulario de acceso
-// y permitimos validar las credenciales del administrador.
+// Con esta función mostramos el formulario de acceso y
+// permitimos validar las credenciales del administrador.
 @Composable
 fun PantallaLoginAdmin(
     usuario: String,
@@ -248,18 +246,17 @@ fun PantallaLoginAdmin(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        androidx.compose.material3.TextButton(
-            onClick = onVolver
-        ) {
+        TextButton(onClick = onVolver) {
             Text("Volver al inicio")
         }
     }
 }
 
-// Con esta función mostramos el panel administrativo inicial.
-// En los siguientes pasos incorporaremos aquí el CRUD de eventos.
+// Con esta función mostramos el panel administrativo y
+// ofrecemos el acceso a la gestión de eventos.
 @Composable
 fun PantallaAdmin(
+    onGestionarEventos: () -> Unit,
     onCerrarSesion: () -> Unit
 ) {
     Column(
@@ -278,19 +275,20 @@ fun PantallaAdmin(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        Text(
-            text = "Sesión de administrador iniciada correctamente."
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Text(
-            text = "Aquí construiremos la gestión de eventos."
-        )
+        Text("Sesión de administrador iniciada correctamente.")
 
         Spacer(modifier = Modifier.height(28.dp))
 
         Button(
+            onClick = onGestionarEventos,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Gestionar eventos")
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        TextButton(
             onClick = onCerrarSesion,
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -305,8 +303,6 @@ fun PantallaAdmin(
 @Composable
 fun VistaPreviaInicio() {
     AgenciaConnectTheme {
-        PantallaInicio(
-            onAccesoAdmin = {}
-        )
+        PantallaInicio(onAccesoAdmin = {})
     }
 }
