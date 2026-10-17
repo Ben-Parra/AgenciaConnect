@@ -1,9 +1,5 @@
 package cl.duoc.agenciaconnect
 
-import cl.duoc.agenciaconnect.ui.contactos.ContactoScreen
-import cl.duoc.agenciaconnect.ui.contactos.ContactosRegistradosScreen
-import cl.duoc.agenciaconnect.ui.organizaciones.OrganizacionesScreen
-import cl.duoc.agenciaconnect.ui.organizaciones.OrganizacionesRegistradasScreen
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -37,10 +33,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import cl.duoc.agenciaconnect.ui.contactos.ContactoScreen
+import cl.duoc.agenciaconnect.ui.contactos.ContactosRegistradosScreen
+import cl.duoc.agenciaconnect.ui.eventos.EventosRegistradosScreen
 import cl.duoc.agenciaconnect.ui.eventos.EventosScreen
 import cl.duoc.agenciaconnect.ui.login.LoginViewModel
+import cl.duoc.agenciaconnect.ui.oportunidades.OportunidadesRegistradasScreen
+import cl.duoc.agenciaconnect.ui.oportunidades.OportunidadesScreen
+import cl.duoc.agenciaconnect.ui.organizaciones.OrganizacionesRegistradasScreen
+import cl.duoc.agenciaconnect.ui.organizaciones.OrganizacionesScreen
 import cl.duoc.agenciaconnect.ui.theme.AgenciaConnectTheme
-import cl.duoc.agenciaconnect.ui.eventos.EventosRegistradosScreen
 
 // Con esta actividad preparamos la aplicación y coordinamos
 // la navegación entre el inicio, el acceso y la administración.
@@ -88,6 +90,9 @@ class MainActivity : ComponentActivity() {
                                 onGestionarContactos = {
                                     pantalla = "contactos"
                                 },
+                                onGestionarOportunidades = {
+                                    pantalla = "oportunidades"
+                                },
                                 onCerrarSesion = {
                                     pantalla = "inicio"
                                 }
@@ -122,6 +127,7 @@ class MainActivity : ComponentActivity() {
                                 onVolver = { pantalla = "admin" },
                                 onEditarOrganizacion = { pantalla = "organizaciones" }
                             )
+
                             // Con esta pantalla registramos contactos y editamos sus datos.
                             "contactos" -> ContactoScreen(
                                 onVolver = {
@@ -145,6 +151,28 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
 
+                            // Con esta pantalla registramos oportunidades comerciales y editamos sus datos.
+                            "oportunidades" -> OportunidadesScreen(
+                                onVolver = {
+                                    pantalla = "admin"
+                                },
+                                onVerOportunidades = {
+                                    pantalla = "oportunidades_registradas"
+                                }
+                            )
+
+                            // Con esta pantalla consultamos, editamos y eliminamos oportunidades comerciales.
+                            "oportunidades_registradas" -> OportunidadesRegistradasScreen(
+                                onVolverFormulario = {
+                                    pantalla = "oportunidades"
+                                },
+                                onVolver = {
+                                    pantalla = "admin"
+                                },
+                                onEditarOportunidad = {
+                                    pantalla = "oportunidades"
+                                }
+                            )
                         }
                     }
                 }
@@ -295,13 +323,13 @@ fun PantallaLoginAdmin(
     }
 }
 
-
-// Con esta función mostramos el panel administrativo y ofrecemos acceso a los módulos.
+// Con esta función mostramos el panel administrativo y ofrecemos acceso a todos los módulos.
 @Composable
 fun PantallaAdmin(
     onGestionarEventos: () -> Unit,
     onGestionarOrganizaciones: () -> Unit,
     onGestionarContactos: () -> Unit,
+    onGestionarOportunidades: () -> Unit,
     onCerrarSesion: () -> Unit
 ) {
     Column(
@@ -334,7 +362,7 @@ fun PantallaAdmin(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Con este botón accedemos al nuevo módulo de organizaciones.
+        // Con este botón accedemos al módulo de organizaciones.
         Button(
             onClick = onGestionarOrganizaciones,
             modifier = Modifier.fillMaxWidth()
@@ -354,6 +382,14 @@ fun PantallaAdmin(
 
         Spacer(modifier = Modifier.height(8.dp))
 
+        // Con este botón accedemos al nuevo módulo de gestión de oportunidades.
+        Button(
+            onClick = onGestionarOportunidades,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Gestionar oportunidades")
+        }
+
         Spacer(modifier = Modifier.height(8.dp))
 
         // Con este botón cerramos la sesión y regresamos al inicio.
@@ -365,7 +401,6 @@ fun PantallaAdmin(
         }
     }
 }
-
 
 // Con esta función previsualizamos la pantalla inicial
 // desde las herramientas de diseño de Android Studio.

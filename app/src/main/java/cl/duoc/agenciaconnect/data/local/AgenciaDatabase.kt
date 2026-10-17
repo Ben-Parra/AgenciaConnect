@@ -8,12 +8,13 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import cl.duoc.agenciaconnect.data.model.Contacto
 import cl.duoc.agenciaconnect.data.model.Evento
+import cl.duoc.agenciaconnect.data.model.Oportunidad
 import cl.duoc.agenciaconnect.data.model.Organizacion
 
-// Con esta base de datos centralizamos las entidades que utiliza AgenciaConnect.
+// Con esta base de datos centralizamos todas las entidades que utiliza AgenciaConnect.
 @Database(
-    entities = [Evento::class, Organizacion::class, Contacto::class],
-    version = 3,
+    entities = [Evento::class, Organizacion::class, Contacto::class, Oportunidad::class],
+    version = 5,
     exportSchema = false
 )
 abstract class AgenciaDatabase : RoomDatabase() {
@@ -22,6 +23,7 @@ abstract class AgenciaDatabase : RoomDatabase() {
     abstract fun eventoDao(): EventoDao
     abstract fun organizacionDao(): OrganizacionDao
     abstract fun contactoDao(): ContactoDao
+    abstract fun oportunidadDao(): OportunidadDao
 
     companion object {
 
@@ -67,9 +69,31 @@ abstract class AgenciaDatabase : RoomDatabase() {
             }
         }
 
+        // Con esta migración incorporamos la tabla de oportunidades comerciales en la versión 4.
+        private val MIGRACION_3_4 = object : Migration(3, 4) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS oportunidades (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        nombre TEXT NOT NULL,
+                        tipo TEXT NOT NULL,
+                        organizacionId INTEGER NOT NULL,
+                        eventoId INTEGER NOT NULL,
+                        prioridad TEXT NOT NULL,
+                        potencial TEXT NOT NULL,
+                        estado TEXT NOT NULL,
+                        responsable TEXT NOT NULL,
+                        observaciones TEXT NOT NULL
+                    )
+                    """.trimIndent()
+                )
+            }
+        }
+
         // Con esta migración agregamos la columna imagenUri a la tabla eventos
         // para guardar la referencia a la imagen del evento sin perder los registros existentes.
-        private val MIGRACION_3_4 = object : Migration(3, 4) {
+        private val MIGRACION_4_5 = object : Migration(4, 5) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL(
                     "ALTER TABLE eventos ADD COLUMN imagenUri TEXT NOT NULL DEFAULT ''"
@@ -80,7 +104,7 @@ abstract class AgenciaDatabase : RoomDatabase() {
         @Volatile
         private var INSTANCIA: AgenciaDatabase? = null
 
-        // Con esta función reutilizamos una única instancia de la base de datos.
+        // Con esta función reutilizamos una única instancia de la base de datos con todas sus migraciones.
         fun obtenerInstancia(context: Context): AgenciaDatabase {
             return INSTANCIA ?: synchronized(this) {
                 INSTANCIA ?: Room.databaseBuilder(
@@ -88,7 +112,7 @@ abstract class AgenciaDatabase : RoomDatabase() {
                     AgenciaDatabase::class.java,
                     "agencia_connect.db"
                 )
-                    .addMigrations(MIGRACION_1_2, MIGRACION_2_3, MIGRACION_3_4)
+                    .addMigrations(MIGRACION_1_2, MIGRACION_2_3, MIGRACION_3_4, MIGRACION_4_5)
                     .build()
                     .also { INSTANCIA = it }
             }
