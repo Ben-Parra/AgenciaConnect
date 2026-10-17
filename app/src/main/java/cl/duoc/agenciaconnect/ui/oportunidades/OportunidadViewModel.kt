@@ -30,6 +30,8 @@ class OportunidadViewModel(application: Application) : AndroidViewModel(applicat
     private val organizacionRepository = OrganizacionRepository(database.organizacionDao())
     private val eventoRepository = EventoRepository(database.eventoDao())
 
+    private val usuarioRepository = cl.duoc.agenciaconnect.data.repository.UsuarioRepository(database.usuarioDao())
+
     // Con este flujo mantenemos el estado privado y observable de la interfaz.
     private val _uiState = MutableStateFlow(OportunidadUiState())
     val uiState: StateFlow<OportunidadUiState> = _uiState.asStateFlow()
@@ -53,6 +55,14 @@ class OportunidadViewModel(application: Application) : AndroidViewModel(applicat
         viewModelScope.launch {
             eventoRepository.eventos.collect { listaEventos ->
                 _uiState.update { it.copy(eventos = listaEventos) }
+            }
+        }
+
+        // Con esta corrutina cargamos los usuarios con rol EJECUTIVO para el combobox del supervisor.
+        viewModelScope.launch {
+            usuarioRepository.usuarios.collect { listaUsuarios ->
+                val soloEjecutivos = listaUsuarios.filter { it.rol == "EJECUTIVO" }
+                _uiState.update { it.copy(ejecutivos = soloEjecutivos) }
             }
         }
     }
@@ -271,5 +281,25 @@ class OportunidadViewModel(application: Application) : AndroidViewModel(applicat
     fun reiniciarFormularioAlSalir() {
         limpiarFormulario()
         _uiState.update { it.copy(mensaje = null) }
+    }
+
+    // Con esta función preparamos los datos de la oportunidad para editarla en el formulario.
+    fun cargarOportunidadParaEditar(oportunidad: Oportunidad) {
+        editarOportunidad(oportunidad)
+    }
+
+    // Con esta función seleccionamos la oportunidad sobre la que se pide confirmación de eliminación.
+    fun solicitarEliminar(oportunidad: Oportunidad) {
+        solicitarEliminacion(oportunidad)
+    }
+
+    // Con esta función cancelamos el diálogo de confirmación.
+    fun cancelarEliminar() {
+        cancelarEliminacion()
+    }
+
+    // Con esta función confirmamos la eliminación y la ejecutamos en Room de forma asíncrona.
+    fun confirmarEliminar() {
+        confirmarEliminacion()
     }
 }

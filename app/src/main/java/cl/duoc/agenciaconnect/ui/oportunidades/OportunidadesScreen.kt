@@ -1,5 +1,6 @@
 package cl.duoc.agenciaconnect.ui.oportunidades
 
+import cl.duoc.agenciaconnect.data.model.Usuario
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -37,12 +38,23 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 // Con esta pantalla mostramos el formulario completo para registrar y editar oportunidades comerciales.
 @Composable
 fun OportunidadesScreen(
+    usuarioActual: Usuario? = null,
     onVolver: () -> Unit,
     onVerOportunidades: () -> Unit,
     viewModel: OportunidadViewModel = viewModel()
 ) {
     // Con este estado observamos los campos del formulario, listas auxiliares y errores de validación.
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    // Con esta variable identificamos si el usuario activo tiene rol de supervisión.
+    val esSupervisor = usuarioActual?.rol == "SUPERVISOR"
+
+    // Si el usuario es un ejecutivo y el responsable aún está en blanco, se asigna automáticamente en el estado.
+    androidx.compose.runtime.LaunchedEffect(usuarioActual) {
+        if (!esSupervisor && uiState.responsable.isBlank() && usuarioActual != null) {
+            viewModel.cambiarResponsable(usuarioActual.nombre)
+        }
+    }
 
     // Con este efecto reiniciamos el formulario al salir de la pantalla para evitar datos residuales.
     DisposableEffect(viewModel) {
@@ -58,6 +70,7 @@ fun OportunidadesScreen(
     var menuPrioridadAbierto by remember { mutableStateOf(false) }
     var menuPotencialAbierto by remember { mutableStateOf(false) }
     var menuEstadoAbierto by remember { mutableStateOf(false) }
+    var menuResponsableAbierto by remember { mutableStateOf(false) }
 
     // Con estas listas definimos las opciones estandarizadas según el caso de estudio.
     val tiposOportunidad = listOf(
@@ -72,15 +85,28 @@ fun OportunidadesScreen(
 
     val prioridades = listOf("Alta", "Media", "Baja")
     val potenciales = listOf("Alto", "Medio", "Bajo")
-    val estados = listOf(
-        "Evento identificado",
-        "Contacto pendiente",
-        "Contacto realizado",
-        "Propuesta enviada",
-        "En espera de respuesta",
-        "Participación confirmada",
-        "Oportunidad descartada"
-    )
+
+
+    // REGLA DE NEGOCIO: El ejecutivo no puede confirmar ni descartar definitivamente oportunidades.
+    val estados = if (esSupervisor) {
+        listOf(
+            "Evento identificado",
+            "Contacto pendiente",
+            "Contacto realizado",
+            "Propuesta enviada",
+            "En espera de respuesta",
+            "Participación confirmada",
+            "Oportunidad descartada"
+        )
+    } else {
+        listOf(
+            "Evento identificado",
+            "Contacto pendiente",
+            "Contacto realizado",
+            "Propuesta enviada",
+            "En espera de respuesta"
+        )
+    }
 
     // Con estas variables identificamos los nombres asociados a las entidades seleccionadas.
     val organizacionSeleccionada = uiState.organizaciones.find { it.id == uiState.organizacionId }
@@ -391,19 +417,92 @@ fun OportunidadesScreen(
             }
         }
 
-        // Con este campo indicamos el colaborador responsable de la gestión.
-        OutlinedTextField(
-            value = uiState.responsable,
-            onValueChange = viewModel::cambiarResponsable,
-            label = { Text("Responsable interno") },
-            placeholder = { Text("Ej.: Ejecutivo Comercial") },
-            isError = uiState.errorResponsable,
-            supportingText = {
-                if (uiState.errorResponsable) Text("El responsable interno es obligatorio.")
-            },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
-        )
+        // Si es Supervisor, mostramos un ComboBox con los ejecutivos registrados.
+        // Si es Ejecutivo, mostramos el campo bloqueado con su propio nombre.
+        if (esSupervisor) {
+            Box(modifier = Modifier.fillMaxWidth()) {
+                OutlinedTextField(
+                    value = uiState.responsable.ifBlank { "Selecciona un ejecutivo responsable" },
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Asignar a Ejecutivo Responsable") },
+                    isError = uiState.errorResponsable,
+                    supportingText = {
+                        if (uiState.errorResponsable) {
+                            Text("Debes asignar un ejecutivo a la oportunidad.")
+                        } else {
+                            Text("Selecciona el ejecutivo comercial a cargo.")
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    trailingIcon = { Text(if (menuResponsableAbierto) "▲" else "▼") }
+                )
+
+                Box(
+                    Modifier
+                        .matchParentSize()
+                        .padding(end = 48.dp)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = { menuResponsableAbierto = true }
+                        )
+                )
+
+                DropdownMenu(
+                    expanded = menuResponsableAbierto,
+                    onDismissRequest = { menuResponsableAbierto = false }
+                ) {
+                    if (uiState.ejecutivos.isEmpty()) {
+                        DropdownMenuItem(
+                            text = { Text("No hay ejecutivos registrados") },
+                            onClick = { menuResponsableAbierto = false }
+                        )
+                    } else {
+                        // Ordenamos explícitamente para que aparezcan 1, 2 y 3 en la lista
+                        val ejecutivosOrdenados = uiState.ejecutivos.sortedBy { ejecutivo ->
+                            when (ejecutivo.correo) {
+                                "carlos.comercial@agencia.cl" -> 1
+                                "marcela.ventas@agencia.cl" -> 2
+                                "felipe.convenios@agencia.cl" -> 3
+                                else -> 4
+                            }
+                        }
+
+                        ejecutivosOrdenados.forEach { ejecutivo ->
+                            val rolEtiqueta = when (ejecutivo.correo) {
+                                "carlos.comercial@agencia.cl" -> "Ejecutivo 1"
+                                "marcela.ventas@agencia.cl" -> "Ejecutivo 2"
+                                "felipe.convenios@agencia.cl" -> "Ejecutivo 3"
+                                else -> "Ejecutivo"
+                            }
+                            val etiqueta = "${ejecutivo.nombre} - $rolEtiqueta"
+
+                            DropdownMenuItem(
+                                text = { Text(etiqueta) },
+                                onClick = {
+                                    viewModel.cambiarResponsable(ejecutivo.nombre)
+                                    menuResponsableAbierto = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        } else {
+            OutlinedTextField(
+                value = uiState.responsable,
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Responsable asignado") },
+                supportingText = {
+                    Text("Asignado automáticamente al ejecutivo en sesión.")
+                },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+        }
 
         // Con este campo agregamos notas adicionales u observaciones.
         OutlinedTextField(

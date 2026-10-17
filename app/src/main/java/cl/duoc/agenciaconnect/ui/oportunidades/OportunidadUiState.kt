@@ -31,6 +31,7 @@ data class OportunidadUiState(
     val oportunidades: List<Oportunidad> = emptyList(),
     val organizaciones: List<Organizacion> = emptyList(),
     val eventos: List<Evento> = emptyList(),
+    val ejecutivos: List<cl.duoc.agenciaconnect.data.model.Usuario> = emptyList(), // <- AGREGAR ESTA LÍNEA
 
     // Con estos campos controlamos el modo de edición y la solicitud de eliminación.
     val idEnEdicion: Long? = null,
@@ -39,4 +40,6 @@ data class OportunidadUiState(
     // Con estos indicadores informamos el estado de las operaciones y el resultado visual.
     val guardando: Boolean = false,
     val mensaje: String? = null
+
+
 )

@@ -1,17 +1,24 @@
 package cl.duoc.agenciaconnect.ui.login
 
-// Con esta clase centralizamos los datos del acceso,
-// los errores individuales y el resultado del inicio de sesión.
+import cl.duoc.agenciaconnect.data.model.Usuario
+
+// Con esta clase centralizamos el estado de la pantalla de acceso y el usuario autenticado.
 data class LoginUiState(
 
-    // Con estas variables conservamos lo que escribe el usuario.
-    val usuario: String = "",
+    // Con estos campos conservamos los datos escritos en el formulario.
+    val correo: String = "",
     val contrasena: String = "",
 
-    // Con estas variables indicamos si cada campo tiene un error.
-    val errorUsuario: Boolean = false,
+    // Con estos indicadores controlamos los mensajes de error por campo.
+    val errorCorreo: Boolean = false,
     val errorContrasena: Boolean = false,
 
-    // Con este mensaje informamos el resultado del inicio de sesión.
-    val mensajeError: String = ""
+    // Con este indicador informamos si la autenticación está en proceso.
+    val cargando: Boolean = false,
+
+    // Con este mensaje informamos fallos de credenciales o errores generales.
+    val mensajeError: String = "",
+
+    // Con este campo conservamos los datos del usuario que inició sesión correctamente.
+    val usuarioAutenticado: Usuario? = null
 )

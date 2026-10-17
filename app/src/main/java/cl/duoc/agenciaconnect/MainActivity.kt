@@ -1,5 +1,8 @@
 package cl.duoc.agenciaconnect
 
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.Row
+import androidx.compose.material3.OutlinedButton
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -54,7 +57,13 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             AgenciaConnectTheme {
+                // Con esta variable controlamos la pantalla visible en cada momento.
                 var pantalla by remember { mutableStateOf("inicio") }
+
+                // Con esta variable recordamos al usuario que inició sesión para controlar sus permisos y rol.
+                var usuarioActual by remember { mutableStateOf<cl.duoc.agenciaconnect.data.model.Usuario?>(null) }
+                // Con esta variable guardamos la oportunidad seleccionada para revisar su bitácora de seguimiento.
+                var oportunidadSeleccionada by remember { mutableStateOf<cl.duoc.agenciaconnect.data.model.Oportunidad?>(null) }
 
                 Scaffold(
                     modifier = Modifier.fillMaxSize()
@@ -66,13 +75,14 @@ class MainActivity : ComponentActivity() {
                     ) {
                         when (pantalla) {
                             "inicio" -> PantallaInicio(
-                                onAccesoAdmin = {
+                                onAcceso = {
                                     pantalla = "login"
                                 }
                             )
 
                             "login" -> PantallaLoginAdmin(
-                                onAccesoCorrecto = {
+                                onAccesoCorrecto = { usuario ->
+                                    usuarioActual = usuario
                                     pantalla = "admin"
                                 },
                                 onVolver = {
@@ -81,6 +91,7 @@ class MainActivity : ComponentActivity() {
                             )
 
                             "admin" -> PantallaAdmin(
+                                usuario = usuarioActual,
                                 onGestionarEventos = {
                                     pantalla = "eventos"
                                 },
@@ -94,6 +105,7 @@ class MainActivity : ComponentActivity() {
                                     pantalla = "oportunidades"
                                 },
                                 onCerrarSesion = {
+                                    usuarioActual = null
                                     pantalla = "inicio"
                                 }
                             )
@@ -151,8 +163,9 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
 
-                            // Con esta pantalla registramos oportunidades comerciales y editamos sus datos.
+                            // Con esta pantalla registramos oportunidades comerciales respetando los permisos del rol.
                             "oportunidades" -> OportunidadesScreen(
+                                usuarioActual = usuarioActual,
                                 onVolver = {
                                     pantalla = "admin"
                                 },
@@ -161,8 +174,9 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
 
-                            // Con esta pantalla consultamos, editamos y eliminamos oportunidades comerciales.
+                            // Con esta pantalla consultamos, filtramos y gestionamos oportunidades según el rol.
                             "oportunidades_registradas" -> OportunidadesRegistradasScreen(
+                                usuarioActual = usuarioActual,
                                 onVolverFormulario = {
                                     pantalla = "oportunidades"
                                 },
@@ -171,8 +185,27 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onEditarOportunidad = {
                                     pantalla = "oportunidades"
+                                },
+                                onVerSeguimiento = { oportunidad ->
+                                    oportunidadSeleccionada = oportunidad
+                                    pantalla = "seguimiento"
                                 }
                             )
+
+                            // Con esta pantalla revisamos la bitácora de seguimiento y agendamos en el calendario nativo.
+                            "seguimiento" -> {
+                                oportunidadSeleccionada?.let { op ->
+                                    cl.duoc.agenciaconnect.ui.seguimientos.SeguimientoScreen(
+                                        oportunidad = op,
+                                        usuarioActual = usuarioActual,
+                                        onVolver = {
+                                            pantalla = "oportunidades_registradas"
+                                        }
+                                    )
+                                } ?: run {
+                                    pantalla = "oportunidades_registradas"
+                                }
+                            }
                         }
                     }
                 }
@@ -181,11 +214,10 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// Con esta función presentamos la aplicación y ofrecemos
-// el acceso a la sección administrativa.
+// Con esta función presentamos la aplicación y ofrecemos el acceso principal al sistema.
 @Composable
 fun PantallaInicio(
-    onAccesoAdmin: () -> Unit
+    onAcceso: () -> Unit
 ) {
     Box(
         modifier = Modifier.fillMaxSize(),
@@ -222,20 +254,20 @@ fun PantallaInicio(
             Spacer(modifier = Modifier.height(28.dp))
 
             Button(
-                onClick = onAccesoAdmin,
+                onClick = onAcceso,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Acceso administrador")
+                Text("Iniciar sesión")
             }
         }
     }
 }
 
-// Con esta función mostramos el formulario de acceso y delegamos
-// la validación de las credenciales al LoginViewModel.
+// Con esta función mostramos el formulario de acceso, permitimos ingreso manual
+// y ofrecemos una tarjeta informativa con botones de autocompletado rápido.
 @Composable
 fun PantallaLoginAdmin(
-    onAccesoCorrecto: () -> Unit,
+    onAccesoCorrecto: (cl.duoc.agenciaconnect.data.model.Usuario) -> Unit,
     onVolver: () -> Unit,
     loginViewModel: LoginViewModel = viewModel()
 ) {
@@ -244,34 +276,38 @@ fun PantallaLoginAdmin(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(androidx.compose.foundation.rememberScrollState())
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = "Acceso administrador",
+            text = "Acceso al sistema",
             fontSize = 25.sp,
             fontWeight = FontWeight.Bold
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
+        // Con este campo ingresamos el correo institucional manualmente.
         OutlinedTextField(
-            value = uiState.usuario,
-            onValueChange = loginViewModel::cambiarUsuario,
-            label = { Text("Usuario") },
+            value = uiState.correo,
+            onValueChange = loginViewModel::cambiarCorreo,
+            label = { Text("Correo electrónico") },
+            placeholder = { Text("ejemplo@agencia.cl") },
             singleLine = true,
-            isError = uiState.errorUsuario,
+            isError = uiState.errorCorreo,
             supportingText = {
-                if (uiState.errorUsuario) {
-                    Text("Ingresa tu usuario de administrador.")
+                if (uiState.errorCorreo) {
+                    Text("Ingresa un correo válido.")
                 }
             },
             modifier = Modifier.fillMaxWidth()
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
+        // Con este campo ingresamos la contraseña manualmente.
         OutlinedTextField(
             value = uiState.contrasena,
             onValueChange = loginViewModel::cambiarContrasena,
@@ -289,43 +325,116 @@ fun PantallaLoginAdmin(
 
         if (uiState.mensajeError.isNotBlank()) {
             Spacer(modifier = Modifier.height(8.dp))
-
             Text(
                 text = uiState.mensajeError,
                 color = MaterialTheme.colorScheme.error
             )
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
+        // Con este botón ejecutamos la autenticación y pasamos el usuario autenticado sin desfase.
         Button(
             onClick = {
-                if (loginViewModel.iniciarSesion()) {
-                    loginViewModel.limpiarFormulario()
-                    onAccesoCorrecto()
+                loginViewModel.autenticar { usuarioLogueado ->
+                    onAccesoCorrecto(usuarioLogueado)
                 }
             },
+            enabled = !uiState.cargando,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Ingresar")
+            Text(if (uiState.cargando) "Verificando..." else "Ingresar")
         }
 
         Spacer(modifier = Modifier.height(8.dp))
 
         TextButton(
             onClick = {
-                loginViewModel.limpiarFormulario()
+                loginViewModel.cerrarSesion()
                 onVolver()
             }
         ) {
             Text("Volver al inicio")
         }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Con esta tarjeta mostramos las 4 credenciales de prueba exigidas por la evaluación.
+        androidx.compose.material3.Card(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    text = "Cuentas de prueba (4 cuentas exigidas)",
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleSmall
+                )
+                Text(
+                    text = "• Sup: supervisor@agencia.cl | super123\n" +
+                            "• Eje 1: carlos.comercial@agencia.cl | eje123\n" +
+                            "• Eje 2: marcela.ventas@agencia.cl | eje123\n" +
+                            "• Eje 3: felipe.convenios@agencia.cl | eje123",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontSize = 11.sp
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Text(
+                    text = "Autocompletar con un clic:",
+                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.labelMedium
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = {
+                            loginViewModel.cargarCredencialPrueba("supervisor@agencia.cl", "super123")
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Supervisor", fontSize = 10.sp)
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            loginViewModel.cargarCredencialPrueba("carlos.comercial@agencia.cl", "eje123")
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Eje 1", fontSize = 10.sp)
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            loginViewModel.cargarCredencialPrueba("marcela.ventas@agencia.cl", "eje123")
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Eje 2", fontSize = 10.sp)
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            loginViewModel.cargarCredencialPrueba("felipe.convenios@agencia.cl", "eje123")
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Eje 3", fontSize = 10.sp)
+                    }
+                }
+            }
+        }
     }
 }
 
-// Con esta función mostramos el panel administrativo y ofrecemos acceso a todos los módulos.
+// Con esta función mostramos el panel principal y reflejamos el usuario autenticado.
 @Composable
 fun PantallaAdmin(
+    usuario: cl.duoc.agenciaconnect.data.model.Usuario?,
     onGestionarEventos: () -> Unit,
     onGestionarOrganizaciones: () -> Unit,
     onGestionarContactos: () -> Unit,
@@ -340,19 +449,27 @@ fun PantallaAdmin(
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = "Panel de administración",
+            text = "Panel de control",
             fontSize = 26.sp,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
-        Text("Sesión de administrador iniciada correctamente.")
+        // Con este texto identificamos al colaborador y su perfil asignado.
+        Text(
+            text = "Usuario: ${usuario?.nombre ?: "Sin sesión"}",
+            fontWeight = FontWeight.Medium
+        )
+        Text(
+            text = "Rol activo: ${usuario?.rol ?: "INVITADO"}",
+            color = MaterialTheme.colorScheme.secondary,
+            style = MaterialTheme.typography.bodyMedium
+        )
 
         Spacer(modifier = Modifier.height(28.dp))
 
-        // Con este botón accedemos a la gestión de eventos existentes.
         Button(
             onClick = onGestionarEventos,
             modifier = Modifier.fillMaxWidth()
@@ -362,7 +479,6 @@ fun PantallaAdmin(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Con este botón accedemos al módulo de organizaciones.
         Button(
             onClick = onGestionarOrganizaciones,
             modifier = Modifier.fillMaxWidth()
@@ -372,7 +488,6 @@ fun PantallaAdmin(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Con este botón accedemos al módulo de gestión de contactos.
         Button(
             onClick = onGestionarContactos,
             modifier = Modifier.fillMaxWidth()
@@ -382,7 +497,6 @@ fun PantallaAdmin(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Con este botón accedemos al nuevo módulo de gestión de oportunidades.
         Button(
             onClick = onGestionarOportunidades,
             modifier = Modifier.fillMaxWidth()
@@ -390,9 +504,8 @@ fun PantallaAdmin(
             Text("Gestionar oportunidades")
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        // Con este botón cerramos la sesión y regresamos al inicio.
         TextButton(
             onClick = onCerrarSesion,
             modifier = Modifier.fillMaxWidth()
@@ -402,12 +515,11 @@ fun PantallaAdmin(
     }
 }
 
-// Con esta función previsualizamos la pantalla inicial
-// desde las herramientas de diseño de Android Studio.
+// Con esta función previsualizamos la pantalla inicial desde las herramientas de diseño.
 @Preview(showBackground = true)
 @Composable
 fun VistaPreviaInicio() {
     AgenciaConnectTheme {
-        PantallaInicio(onAccesoAdmin = {})
+        PantallaInicio(onAcceso = {})
     }
 }

@@ -30,6 +30,8 @@ interface OportunidadDao {
     suspend fun actualizarOportunidad(oportunidad: Oportunidad)
 
     // Con esta operación eliminamos una oportunidad seleccionada de la base de datos.
-    @Delete
+    @androidx.room.Delete
     suspend fun eliminarOportunidad(oportunidad: Oportunidad)
+
+
 }

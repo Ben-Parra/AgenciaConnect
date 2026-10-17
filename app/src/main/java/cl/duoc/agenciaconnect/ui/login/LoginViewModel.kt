@@ -1,99 +1,125 @@
 package cl.duoc.agenciaconnect.ui.login
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import cl.duoc.agenciaconnect.data.local.AgenciaDatabase
+import cl.duoc.agenciaconnect.data.repository.UsuarioRepository
+import cl.duoc.agenciaconnect.util.validarContrasenaLogin
+import cl.duoc.agenciaconnect.util.validarCorreoLogin
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
-// Con esta clase gestionamos los datos, las validaciones
-// y el inicio de sesión del administrador.
-class LoginViewModel : ViewModel() {
+// Con este ViewModel gestionamos el inicio de sesión y la verificación de roles contra Room.
+class LoginViewModel(application: Application) : AndroidViewModel(application) {
 
-    // Con estas constantes definimos las credenciales
-    // genéricas que utilizaremos durante la demostración académica.
-    private val usuarioAdmin = "admin"
-    private val claveAdmin = "admin123"
+    // Con esta dependencia accedemos al repositorio de usuarios y autenticación.
+    private val usuarioRepository = UsuarioRepository(
+        AgenciaDatabase.obtenerInstancia(application).usuarioDao()
+    )
 
-    // Con esta variable mantenemos el estado privado del formulario.
+    // Con este flujo mantenemos el estado privado de la pantalla de acceso.
     private val _uiState = MutableStateFlow(LoginUiState())
-
-    // Con esta variable exponemos el estado para que la pantalla lo observe.
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
 
-    // Con esta función actualizamos el usuario y limpiamos sus errores.
-    fun cambiarUsuario(usuario: String) {
-        _uiState.update { estado ->
-            estado.copy(
-                usuario = usuario,
-                errorUsuario = false,
+    // Con esta función actualizamos el correo ingresado y limpiamos errores previos.
+    fun cambiarCorreo(nuevoCorreo: String) {
+        _uiState.update {
+            it.copy(
+                correo = nuevoCorreo,
+                errorCorreo = false,
                 mensajeError = ""
             )
         }
     }
 
-    // Con esta función actualizamos la contraseña y limpiamos sus errores.
-    fun cambiarContrasena(contrasena: String) {
-        _uiState.update { estado ->
-            estado.copy(
-                contrasena = contrasena,
+    // Con esta función actualizamos la contraseña y limpiamos su error.
+    fun cambiarContrasena(nuevaContrasena: String) {
+        _uiState.update {
+            it.copy(
+                contrasena = nuevaContrasena,
                 errorContrasena = false,
                 mensajeError = ""
             )
         }
     }
 
-    // Con esta función validamos los campos y comprobamos las credenciales.
-    // Retornamos true si el acceso es correcto y false en caso contrario.
-    fun iniciarSesion(): Boolean {
+    // Con esta función ayudamos a cargar credenciales rápidas de prueba durante la defensa.
+    fun cargarCredencialPrueba(correo: String, contrasena: String) {
+        _uiState.update {
+            it.copy(
+                correo = correo,
+                contrasena = contrasena,
+                errorCorreo = false,
+                errorContrasena = false,
+                mensajeError = ""
+            )
+        }
+    }
+
+    // Con esta función validamos los campos y autenticamos al usuario contra la base de datos,
+    // entregando directamente el usuario encontrado en el callback de éxito.
+    fun autenticar(onExito: (cl.duoc.agenciaconnect.data.model.Usuario) -> Unit) {
         val estadoActual = _uiState.value
 
-        val usuarioValido = validarUsuarioLogin(estadoActual.usuario)
+        val correoValido = validarCorreoLogin(estadoActual.correo)
         val contrasenaValida = validarContrasenaLogin(estadoActual.contrasena)
 
-        // Con estas condiciones identificamos los campos vacíos.
-        if (!usuarioValido || !contrasenaValida) {
-            _uiState.update { estado ->
-                estado.copy(
-                    errorUsuario = !usuarioValido,
+        if (!correoValido || !contrasenaValida) {
+            _uiState.update {
+                it.copy(
+                    errorCorreo = !correoValido,
                     errorContrasena = !contrasenaValida,
-                    mensajeError = "Completa los campos indicados."
+                    mensajeError = "Ingresa un correo válido y tu contraseña."
                 )
             }
-
-            return false
+            return
         }
 
-        // Con esta condición comprobamos las credenciales de demostración.
-        if (
-            estadoActual.usuario.trim() == usuarioAdmin &&
-            estadoActual.contrasena == claveAdmin
-        ) {
-            _uiState.update { estado ->
-                estado.copy(
-                    errorUsuario = false,
-                    errorContrasena = false,
-                    mensajeError = ""
+        viewModelScope.launch {
+            _uiState.update { it.copy(cargando = true, mensajeError = "") }
+
+            try {
+                val usuario = usuarioRepository.autenticar(
+                    estadoActual.correo,
+                    estadoActual.contrasena
                 )
+
+                if (usuario != null) {
+                    _uiState.update {
+                        it.copy(
+                            cargando = false,
+                            usuarioAutenticado = usuario,
+                            mensajeError = ""
+                        )
+                    }
+                    // Entregamos directamente el usuario recién verificado
+                    onExito(usuario)
+                } else {
+                    _uiState.update {
+                        it.copy(
+                            cargando = false,
+                            usuarioAutenticado = null,
+                            mensajeError = "Correo o contraseña incorrectos. Revisa las cuentas de prueba."
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        cargando = false,
+                        mensajeError = "Error al conectar con la base de datos."
+                    )
+                }
             }
-
-            return true
         }
-
-        // Con este mensaje informamos cuando las credenciales son incorrectas.
-        _uiState.update { estado ->
-            estado.copy(
-                errorUsuario = false,
-                errorContrasena = false,
-                mensajeError = "El usuario o la contraseña son incorrectos."
-            )
-        }
-
-        return false
     }
 
-    // Con esta función limpiamos los datos al salir del inicio de sesión.
-    fun limpiarFormulario() {
+    // Con esta función cerramos la sesión y limpiamos los datos del estado.
+    fun cerrarSesion() {
         _uiState.value = LoginUiState()
     }
 }

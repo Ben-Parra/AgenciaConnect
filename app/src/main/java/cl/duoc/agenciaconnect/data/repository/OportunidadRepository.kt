@@ -31,4 +31,5 @@ class OportunidadRepository(
     suspend fun eliminarOportunidad(oportunidad: Oportunidad) {
         oportunidadDao.eliminarOportunidad(oportunidad)
     }
+
 }
