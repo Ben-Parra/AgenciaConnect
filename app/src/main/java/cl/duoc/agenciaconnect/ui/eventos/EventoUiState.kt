@@ -13,6 +13,11 @@ data class EventoUiState(
     val ubicacion: String = "",
     val organizacion: String = "",
 
+    // Con esta variable almacenamos la URI de la imagen seleccionada.
+    // Usamos String para poder guardarlo fácilmente en Room.
+    // La cadena vacía indica que aún no se ha seleccionado ninguna imagen.
+    val imagenUri: String = "",
+
     // Con esta lista mostramos únicamente las organizaciones
     // que obtenemos desde nuestra base de datos.
     val organizaciones: List<Organizacion> = emptyList(),
@@ -22,6 +27,9 @@ data class EventoUiState(
     val errorFecha: Boolean = false,
     val errorUbicacion: Boolean = false,
     val errorOrganizacion: Boolean = false,
+
+    // Con este estado indicamos que falta seleccionar una imagen.
+    val errorImagenUri: Boolean = false,
 
     val eventos: List<Evento> = emptyList(),
     val idEnEdicion: Long? = null,

@@ -9,6 +9,7 @@ import cl.duoc.agenciaconnect.data.model.Evento
 import cl.duoc.agenciaconnect.data.repository.EventoRepository
 import cl.duoc.agenciaconnect.util.validarDescripcionEvento
 import cl.duoc.agenciaconnect.util.validarFechaEvento
+import cl.duoc.agenciaconnect.util.validarImagenUri
 import cl.duoc.agenciaconnect.util.validarNombreEvento
 import cl.duoc.agenciaconnect.util.validarUbicacionEvento
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -106,6 +107,15 @@ class EventoViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    // Con esta función guardamos la URI de la imagen seleccionada
+    // desde el selector del sistema y limpiamos el error correspondiente.
+    // Recibimos la URI como String para poder persistirla directamente en Room.
+    fun cambiarImagenUri(nuevaUri: String) {
+        _uiState.update {
+            it.copy(imagenUri = nuevaUri, errorImagenUri = false)
+        }
+    }
+
     // Con esta función validamos los campos y comprobamos que la organización
     // seleccionada corresponda a una organización que siga registrada en Room.
     fun validarFormulario(): Boolean {
@@ -122,12 +132,17 @@ class EventoViewModel(application: Application) : AndroidViewModel(application) 
 
         val errorOrganizacion = !organizacionExiste
 
+        // Con esta validación comprobamos que se haya seleccionado
+        // una imagen antes de permitir guardar el evento.
+        val errorImagenUri = !validarImagenUri(estado.imagenUri)
+
         val hayErrores =
             errorNombre ||
                     errorDescripcion ||
                     errorFecha ||
                     errorUbicacion ||
-                    errorOrganizacion
+                    errorOrganizacion ||
+                    errorImagenUri
 
         // Con esta actualización mostramos los errores y explicamos
         // qué debemos corregir antes de guardar el evento.
@@ -138,6 +153,7 @@ class EventoViewModel(application: Application) : AndroidViewModel(application) 
                 errorFecha = errorFecha,
                 errorUbicacion = errorUbicacion,
                 errorOrganizacion = errorOrganizacion,
+                errorImagenUri = errorImagenUri,
                 mensaje = when {
                     estado.organizaciones.isEmpty() ->
                         "Registra una organización antes de crear un evento."
@@ -168,7 +184,8 @@ class EventoViewModel(application: Application) : AndroidViewModel(application) 
             descripcion = estado.descripcion.trim(),
             fecha = estado.fecha,
             ubicacion = estado.ubicacion.trim(),
-            organizacion = estado.organizacion
+            organizacion = estado.organizacion,
+            imagenUri = estado.imagenUri
         )
 
         // Con esta corrutina guardamos el evento y comunicamos el resultado.
@@ -213,11 +230,13 @@ class EventoViewModel(application: Application) : AndroidViewModel(application) 
                 fecha = evento.fecha,
                 ubicacion = evento.ubicacion,
                 organizacion = evento.organizacion,
+                imagenUri = evento.imagenUri,
                 errorNombre = false,
                 errorDescripcion = false,
                 errorFecha = false,
                 errorUbicacion = false,
                 errorOrganizacion = false,
+                errorImagenUri = false,
                 mensaje = null,
                 idEnEdicion = evento.id
             )
@@ -264,11 +283,13 @@ class EventoViewModel(application: Application) : AndroidViewModel(application) 
                         fecha = if (estabaEditando) "" else it.fecha,
                         ubicacion = if (estabaEditando) "" else it.ubicacion,
                         organizacion = if (estabaEditando) "" else it.organizacion,
+                        imagenUri = if (estabaEditando) "" else it.imagenUri,
                         errorNombre = if (estabaEditando) false else it.errorNombre,
                         errorDescripcion = if (estabaEditando) false else it.errorDescripcion,
                         errorFecha = if (estabaEditando) false else it.errorFecha,
                         errorUbicacion = if (estabaEditando) false else it.errorUbicacion,
                         errorOrganizacion = if (estabaEditando) false else it.errorOrganizacion,
+                        errorImagenUri = if (estabaEditando) false else it.errorImagenUri,
                         idEnEdicion = if (estabaEditando) null else it.idEnEdicion
                     )
                 }
@@ -294,11 +315,13 @@ class EventoViewModel(application: Application) : AndroidViewModel(application) 
                 fecha = "",
                 ubicacion = "",
                 organizacion = "",
+                imagenUri = "",
                 errorNombre = false,
                 errorDescripcion = false,
                 errorFecha = false,
                 errorUbicacion = false,
                 errorOrganizacion = false,
+                errorImagenUri = false,
                 idEnEdicion = null
             )
         }

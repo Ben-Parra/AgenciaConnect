@@ -48,3 +48,11 @@ fun validarFechaEvento(fecha: String): Boolean {
         false
     }
 }
+
+// Con esta función comprobamos que el evento tenga una imagen
+// asociada antes de permitir guardarlo.
+// Una URI válida es cualquier texto no vacío que hayamos recibido
+// del selector del sistema.
+fun validarImagenUri(imagenUri: String): Boolean {
+    return imagenUri.isNotBlank()
+}

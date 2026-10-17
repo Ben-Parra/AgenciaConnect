@@ -67,6 +67,16 @@ abstract class AgenciaDatabase : RoomDatabase() {
             }
         }
 
+        // Con esta migración agregamos la columna imagenUri a la tabla eventos
+        // para guardar la referencia a la imagen del evento sin perder los registros existentes.
+        private val MIGRACION_3_4 = object : Migration(3, 4) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    "ALTER TABLE eventos ADD COLUMN imagenUri TEXT NOT NULL DEFAULT ''"
+                )
+            }
+        }
+
         @Volatile
         private var INSTANCIA: AgenciaDatabase? = null
 
@@ -78,7 +88,7 @@ abstract class AgenciaDatabase : RoomDatabase() {
                     AgenciaDatabase::class.java,
                     "agencia_connect.db"
                 )
-                    .addMigrations(MIGRACION_1_2, MIGRACION_2_3)
+                    .addMigrations(MIGRACION_1_2, MIGRACION_2_3, MIGRACION_3_4)
                     .build()
                     .also { INSTANCIA = it }
             }

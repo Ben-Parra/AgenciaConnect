@@ -17,5 +17,9 @@ data class Evento(
     val descripcion: String,
     val fecha: String,
     val ubicacion: String,
-    val organizacion: String
+    val organizacion: String,
+
+    // Con esta propiedad guardamos la referencia a la imagen del evento.
+
+    val imagenUri: String = ""
 )

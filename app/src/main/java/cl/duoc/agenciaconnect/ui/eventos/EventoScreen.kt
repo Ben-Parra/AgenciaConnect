@@ -1,10 +1,37 @@
 package cl.duoc.agenciaconnect.ui.eventos
 
-import androidx.compose.runtime.DisposableEffect
+// ────────────────────────────────────────────────────────────────────────────
+// IMPORTS GENERALES
+// ────────────────────────────────────────────────────────────────────────────
+import android.net.Uri
+import android.os.Build
+
+// Imports para el selector de imágenes del sistema (Photo Picker).
+// ActivityResultContracts.PickVisualMedia es el mecanismo recomendado
+// por Android para seleccionar imágenes sin solicitar permisos de galería.
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.PickVisualMediaRequest
+
+// ────────────────────────────────────────────────────────────────────────────
+// IMPORTS DE ANIMACIONES
+// ────────────────────────────────────────────────────────────────────────────
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -17,16 +44,23 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -36,9 +70,15 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import android.graphics.Bitmap
+import android.graphics.ImageDecoder
 
-// Con esta clase mostramos las barras de la fecha sin modificar
-// los dígitos originales ni desordenar la posición del cursor.
+// ────────────────────────────────────────────────────────────────────────────
+// TRANSFORMACIÓN VISUAL DE FECHA
+// ────────────────────────────────────────────────────────────────────────────
+
+// Con esta clase mostramos las barras separadoras de la fecha (DD/MM/AAAA)
+// en el campo de texto, sin modificar el valor real que se almacena.
 private class FechaVisualTransformation : VisualTransformation {
 
     // Con esta función presentamos la fecha con el formato DD/MM/AAAA.
@@ -54,7 +94,6 @@ private class FechaVisualTransformation : VisualTransformation {
 
         val desplazamiento = object : OffsetMapping {
 
-            // Con esta función ajustamos el cursor al mostrar las barras.
             override fun originalToTransformed(offset: Int): Int {
                 return when {
                     offset <= 2 -> offset
@@ -63,8 +102,6 @@ private class FechaVisualTransformation : VisualTransformation {
                 }.coerceAtMost(formateado.length)
             }
 
-            // Con esta función relacionamos la posición visual del cursor
-            // con la posición real del texto que estamos escribiendo.
             override fun transformedToOriginal(offset: Int): Int {
                 return when {
                     offset <= 2 -> offset
@@ -81,15 +118,43 @@ private class FechaVisualTransformation : VisualTransformation {
     }
 }
 
-// Con esta pantalla presentamos únicamente el formulario
-// para registrar eventos o modificar los que ya existen.
+// ────────────────────────────────────────────────────────────────────────────
+// FUNCIÓN AUXILIAR PARA CARGAR IMAGEN
+// ────────────────────────────────────────────────────────────────────────────
+
+// Con esta función convertimos la URI de una imagen en un Bitmap
+// que Compose puede mostrar directamente en pantalla.
+private fun cargarBitmapDesdeUri(context: android.content.Context, uri: Uri): Bitmap? {
+    return try {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            val fuente = ImageDecoder.createSource(context.contentResolver, uri)
+            ImageDecoder.decodeBitmap(fuente)
+        } else {
+            @Suppress("DEPRECATION")
+            android.graphics.BitmapFactory.decodeStream(
+                context.contentResolver.openInputStream(uri)
+            )
+        }
+    } catch (e: Exception) {
+        null
+    }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// PANTALLA PRINCIPAL: FORMULARIO DE EVENTOS
+// ────────────────────────────────────────────────────────────────────────────
+
+// Con esta pantalla presentamos el formulario para registrar o editar eventos.
+// Aquí aplicamos las tres animaciones:
+//   1. AnimatedVisibility → para mostrar u ocultar la vista previa de la imagen.
+//   2. animateColorAsState → para animar el color del botón de selección.
+//   3. Crossfade → para transicionar el texto de estado debajo del título.
 @Composable
 fun EventosScreen(
     onVolver: () -> Unit,
     onVerEventos: () -> Unit,
     viewModel: EventoViewModel = viewModel()
 ) {
-    // Con este estado observamos los datos y errores del formulario.
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     // Con este efecto reiniciamos el formulario cuando abandonamos la pantalla.
@@ -99,6 +164,55 @@ fun EventosScreen(
         }
     }
 
+    val context = LocalContext.current
+
+    // Con esta variable determinamos si ya hay una imagen seleccionada.
+    val hayImagen = uiState.imagenUri.isNotBlank()
+
+    // ────────────────────────────────────────────────────────────────────
+    // ANIMACIÓN 2: animateColorAsState
+    // ────────────────────────────────────────────────────────────────────
+    // Con animateColorAsState animamos el color del botón de imagen.
+    val colorBotonImagen by animateColorAsState(
+        targetValue = if (hayImagen) {
+            MaterialTheme.colorScheme.primary
+        } else {
+            MaterialTheme.colorScheme.secondary
+        },
+        animationSpec = tween(durationMillis = 600),
+        label = "Color del botón de imagen"
+    )
+
+    // ────────────────────────────────────────────────────────────────────
+    // SELECTOR DE IMÁGENES (Photo Picker)
+    // ────────────────────────────────────────────────────────────────────
+    val selectorImagenes = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) {
+            try {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            } catch (e: SecurityException) {
+                // Algunos sistemas no admiten permisos persistentes sobre
+                // todas las URIs. Capturamos el error sin interrumpir el flujo.
+            }
+            viewModel.cambiarImagenUri(uri.toString())
+        }
+    }
+
+    // ────────────────────────────────────────────────────────────────────
+    // CARGA DEL BITMAP PARA VISTA PREVIA
+    // ────────────────────────────────────────────────────────────────────
+    val bitmapVistaPrevia = remember(uiState.imagenUri) {
+        if (uiState.imagenUri.isNotBlank()) {
+            cargarBitmapDesdeUri(context, Uri.parse(uiState.imagenUri))
+        } else {
+            null
+        }
+    }
 
     // Con este estado controlamos cuándo mostramos las organizaciones disponibles.
     var menuOrganizacionesAbierto by remember {
@@ -122,14 +236,34 @@ fun EventosScreen(
             fontWeight = FontWeight.Bold
         )
 
-        Text(
-            text = "Ingresa los datos del evento corporativo."
-        )
+        // ────────────────────────────────────────────────────────────────
+        // ANIMACIÓN 3: Crossfade
+        // ────────────────────────────────────────────────────────────────
+        // Con Crossfade hacemos que el texto de instrucción debajo del
+        // título cambie de forma progresiva cuando el usuario selecciona
+        // o quita una imagen.
+        Crossfade(
+            targetState = hayImagen,
+            animationSpec = tween(durationMillis = 500),
+            label = "Mensaje de estado de imagen"
+        ) { tieneImagen ->
+            Text(
+                text = if (tieneImagen) {
+                    "¡Imagen seleccionada para el evento!"
+                } else {
+                    "Ingresa los datos del evento corporativo."
+                },
+                color = if (tieneImagen) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                }
+            )
+        }
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Con estos campos ingresamos los datos del evento
-        // y mostramos los errores específicos de cada campo.
+        // ── Campos del formulario ────────────────────────────────────────
         OutlinedTextField(
             value = uiState.nombre,
             onValueChange = viewModel::cambiarNombre,
@@ -190,7 +324,6 @@ fun EventosScreen(
             singleLine = true
         )
 
-
         // Con este selector permitimos elegir una organización registrada en Room.
         Box(
             modifier = Modifier.fillMaxWidth()
@@ -218,8 +351,6 @@ fun EventosScreen(
                 }
             )
 
-            // Con esta superficie habilitamos la apertura del menú
-            // sin permitir que el usuario escriba texto libre.
             Box(
                 modifier = Modifier
                     .matchParentSize()
@@ -236,8 +367,6 @@ fun EventosScreen(
                     )
             )
 
-            // Con este menú presentamos las organizaciones registradas
-            // justo debajo del campo correspondiente.
             DropdownMenu(
                 expanded = menuOrganizacionesAbierto,
                 onDismissRequest = {
@@ -260,7 +389,6 @@ fun EventosScreen(
                                 Text(organizacion.nombre)
                             },
                             onClick = {
-                                // Con esta acción guardamos la organización elegida.
                                 viewModel.cambiarOrganizacion(organizacion.nombre)
                                 menuOrganizacionesAbierto = false
                             }
@@ -270,6 +398,93 @@ fun EventosScreen(
             }
         }
 
+        Spacer(modifier = Modifier.height(4.dp))
+
+        // ────────────────────────────────────────────────────────────────
+        // ANIMACIÓN 1: AnimatedVisibility — vista previa de la imagen
+        // ────────────────────────────────────────────────────────────────
+        // Con AnimatedVisibility mostramos la imagen seleccionada de forma
+        // progresiva en lugar de que aparezca o desaparezca de golpe.
+        AnimatedVisibility(
+            visible = bitmapVistaPrevia != null,
+            enter = fadeIn(animationSpec = tween(400)) + expandVertically(),
+            exit = fadeOut(animationSpec = tween(300)) + shrinkVertically()
+        ) {
+            if (bitmapVistaPrevia != null) {
+                Image(
+                    bitmap = bitmapVistaPrevia.asImageBitmap(),
+                    contentDescription = "Vista previa de la imagen del evento",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp)
+                        .clip(RoundedCornerShape(12.dp)),
+                    contentScale = ContentScale.Crop
+                )
+            }
+        }
+
+        // Con esta segunda AnimatedVisibility mostramos el recuadro indicador
+        // solo cuando NO hay imagen seleccionada.
+        AnimatedVisibility(
+            visible = bitmapVistaPrevia == null,
+            enter = fadeIn(animationSpec = tween(300)),
+            exit = fadeOut(animationSpec = tween(200)) + shrinkVertically()
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(120.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .border(
+                        width = 1.dp,
+                        color = if (uiState.errorImagenUri) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            Color.Gray
+                        },
+                        shape = RoundedCornerShape(12.dp)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Sin imagen seleccionada",
+                    color = if (uiState.errorImagenUri) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        Color.Gray
+                    }
+                )
+            }
+        }
+
+        // Con esta tercera AnimatedVisibility mostramos el mensaje de error
+        // de imagen de forma animada.
+        AnimatedVisibility(
+            visible = uiState.errorImagenUri,
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically()
+        ) {
+            Text(
+                text = "Debes seleccionar una imagen para el evento",
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(start = 16.dp)
+            )
+        }
+
+        // ── Botón de selección de imagen ─────────────────────────────────
+        // Su color cambia animadamente gracias a animateColorAsState.
+        Button(
+            onClick = {
+                selectorImagenes.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+            },
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(containerColor = colorBotonImagen)
+        ) {
+            Text(
+                text = if (hayImagen) "Cambiar imagen" else "Seleccionar imagen"
+            )
+        }
 
         Spacer(modifier = Modifier.height(8.dp))
 
