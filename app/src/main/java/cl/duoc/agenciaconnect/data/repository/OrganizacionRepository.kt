@@ -1,5 +1,6 @@
-package cl.duoc.agenciaconnect.data.local
+package cl.duoc.agenciaconnect.data.repository
 
+import cl.duoc.agenciaconnect.data.local.OrganizacionDao
 import cl.duoc.agenciaconnect.data.model.Organizacion
 import kotlinx.coroutines.flow.Flow
 

@@ -1,6 +1,6 @@
+package cl.duoc.agenciaconnect.data.repository
 
-package cl.duoc.agenciaconnect.data.local
-
+import cl.duoc.agenciaconnect.data.local.EventoDao
 import cl.duoc.agenciaconnect.data.model.Evento
 import kotlinx.coroutines.flow.Flow
 

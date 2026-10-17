@@ -30,6 +30,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 @Composable
 fun EventosRegistradosScreen(
     onVolverFormulario: () -> Unit,
+    onVolver: () -> Unit,
     onEditarEvento: () -> Unit,
     viewModel: EventoViewModel = viewModel()
 ) {
@@ -142,6 +143,13 @@ fun EventosRegistradosScreen(
             modifier = Modifier.fillMaxWidth()
         ) {
             Text("Volver al formulario")
+        }
+        // Con este botón regresamos directamente al panel administrativo.
+        OutlinedButton(
+            onClick = onVolver,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Volver al panel")
         }
     }
 

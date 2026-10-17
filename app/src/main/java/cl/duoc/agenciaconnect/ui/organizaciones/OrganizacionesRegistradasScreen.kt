@@ -29,6 +29,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 @Composable
 fun OrganizacionesRegistradasScreen(
     onVolverFormulario: () -> Unit,
+    onVolver: () -> Unit,
     onEditarOrganizacion: () -> Unit,
     viewModel: OrganizacionViewModel = viewModel()
 ) {
@@ -135,6 +136,14 @@ fun OrganizacionesRegistradasScreen(
             modifier = Modifier.fillMaxWidth()
         ) {
             Text("Volver al formulario")
+        }
+
+        // Con este botón regresamos directamente al panel administrativo.
+        OutlinedButton(
+            onClick = onVolver,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Volver al panel")
         }
     }
 

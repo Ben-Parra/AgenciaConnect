@@ -1,4 +1,3 @@
-
 package cl.duoc.agenciaconnect.data.local
 
 import androidx.room.Dao

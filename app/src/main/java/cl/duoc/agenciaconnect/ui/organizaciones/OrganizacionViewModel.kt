@@ -4,7 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import cl.duoc.agenciaconnect.data.local.AgenciaDatabase
-import cl.duoc.agenciaconnect.data.local.OrganizacionRepository
+import cl.duoc.agenciaconnect.data.repository.OrganizacionRepository
 import cl.duoc.agenciaconnect.data.model.Organizacion
 import cl.duoc.agenciaconnect.util.validarNombreOrganizacion
 import cl.duoc.agenciaconnect.util.validarTipoOrganizacion
@@ -15,6 +15,7 @@ import cl.duoc.agenciaconnect.util.validarPublicoAsociadoOrganizacion
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 // Con este ViewModel coordinamos el formulario, las validaciones y las operaciones de organizaciones.
@@ -239,8 +240,15 @@ class OrganizacionViewModel(application: Application) : AndroidViewModel(applica
         )
     }
 
-    // Con esta función consumimos los mensajes para evitar mostrarlos repetidamente.
-    fun limpiarMensaje() {
-        _uiState.value = _uiState.value.copy(mensaje = null)
+
+    // Con esta función reiniciamos el formulario al abandonar la pantalla,
+    // limpiando los campos, los errores y el modo de edición sin borrar registros.
+    fun reiniciarFormularioAlSalir() {
+        limpiarFormulario()
+
+        _uiState.update {
+            it.copy(mensaje = null)
+        }
     }
+
 }

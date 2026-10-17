@@ -1,5 +1,14 @@
 package cl.duoc.agenciaconnect.ui.eventos
 
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -82,6 +91,19 @@ fun EventosScreen(
 ) {
     // Con este estado observamos los datos y errores del formulario.
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    // Con este efecto reiniciamos el formulario cuando abandonamos la pantalla.
+    DisposableEffect(viewModel) {
+        onDispose {
+            viewModel.reiniciarFormularioAlSalir()
+        }
+    }
+
+
+    // Con este estado controlamos cuándo mostramos las organizaciones disponibles.
+    var menuOrganizacionesAbierto by remember {
+        mutableStateOf(false)
+    }
 
     Column(
         modifier = Modifier
@@ -168,19 +190,86 @@ fun EventosScreen(
             singleLine = true
         )
 
-        OutlinedTextField(
-            value = uiState.organizacion,
-            onValueChange = viewModel::cambiarOrganizacion,
-            label = { Text("Organización") },
-            isError = uiState.errorOrganizacion,
-            supportingText = {
-                if (uiState.errorOrganizacion) {
-                    Text("La organización es obligatoria")
+
+        // Con este selector permitimos elegir una organización registrada en Room.
+        Box(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            OutlinedTextField(
+                value = uiState.organizacion,
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Organización") },
+                placeholder = {
+                    Text("Selecciona una organización")
+                },
+                isError = uiState.errorOrganizacion,
+                supportingText = {
+                    if (uiState.errorOrganizacion) {
+                        Text("Selecciona una organización registrada")
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                trailingIcon = {
+                    Text(
+                        if (menuOrganizacionesAbierto) "▲" else "▼"
+                    )
                 }
-            },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
-        )
+            )
+
+            // Con esta superficie habilitamos la apertura del menú
+            // sin permitir que el usuario escriba texto libre.
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .padding(end = 48.dp)
+                    .clickable(
+                        interactionSource = remember {
+                            androidx.compose.foundation.interaction
+                                .MutableInteractionSource()
+                        },
+                        indication = null,
+                        onClick = {
+                            menuOrganizacionesAbierto = true
+                        }
+                    )
+            )
+
+            // Con este menú presentamos las organizaciones registradas
+            // justo debajo del campo correspondiente.
+            DropdownMenu(
+                expanded = menuOrganizacionesAbierto,
+                onDismissRequest = {
+                    menuOrganizacionesAbierto = false
+                }
+            ) {
+                if (uiState.organizaciones.isEmpty()) {
+                    DropdownMenuItem(
+                        text = {
+                            Text("No hay organizaciones registradas")
+                        },
+                        onClick = {
+                            menuOrganizacionesAbierto = false
+                        }
+                    )
+                } else {
+                    uiState.organizaciones.forEach { organizacion ->
+                        DropdownMenuItem(
+                            text = {
+                                Text(organizacion.nombre)
+                            },
+                            onClick = {
+                                // Con esta acción guardamos la organización elegida.
+                                viewModel.cambiarOrganizacion(organizacion.nombre)
+                                menuOrganizacionesAbierto = false
+                            }
+                        )
+                    }
+                }
+            }
+        }
+
 
         Spacer(modifier = Modifier.height(8.dp))
 
@@ -191,7 +280,9 @@ fun EventosScreen(
                 style = MaterialTheme.typography.bodyMedium,
                 color = if (
                     mensaje.startsWith("No se pudo") ||
-                    mensaje.startsWith("Completa")
+                    mensaje.startsWith("Completa") ||
+                    mensaje.startsWith("Registra") ||
+                    mensaje.startsWith("Selecciona")
                 ) {
                     MaterialTheme.colorScheme.error
                 } else {

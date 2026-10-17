@@ -1,5 +1,7 @@
 package cl.duoc.agenciaconnect
 
+import cl.duoc.agenciaconnect.ui.contactos.ContactoScreen
+import cl.duoc.agenciaconnect.ui.contactos.ContactosRegistradosScreen
 import cl.duoc.agenciaconnect.ui.organizaciones.OrganizacionesScreen
 import cl.duoc.agenciaconnect.ui.organizaciones.OrganizacionesRegistradasScreen
 import android.os.Bundle
@@ -83,6 +85,9 @@ class MainActivity : ComponentActivity() {
                                 onGestionarOrganizaciones = {
                                     pantalla = "organizaciones"
                                 },
+                                onGestionarContactos = {
+                                    pantalla = "contactos"
+                                },
                                 onCerrarSesion = {
                                     pantalla = "inicio"
                                 }
@@ -98,12 +103,9 @@ class MainActivity : ComponentActivity() {
                             )
 
                             "eventos_registrados" -> EventosRegistradosScreen(
-                                onVolverFormulario = {
-                                    pantalla = "eventos"
-                                },
-                                onEditarEvento = {
-                                    pantalla = "eventos"
-                                }
+                                onVolverFormulario = { pantalla = "eventos" },
+                                onVolver = { pantalla = "admin" },
+                                onEditarEvento = { pantalla = "eventos" }
                             )
 
                             "organizaciones" -> OrganizacionesScreen(
@@ -116,11 +118,30 @@ class MainActivity : ComponentActivity() {
                             )
 
                             "organizaciones_registradas" -> OrganizacionesRegistradasScreen(
-                                onVolverFormulario = {
-                                    pantalla = "organizaciones"
+                                onVolverFormulario = { pantalla = "organizaciones" },
+                                onVolver = { pantalla = "admin" },
+                                onEditarOrganizacion = { pantalla = "organizaciones" }
+                            )
+                            // Con esta pantalla registramos contactos y editamos sus datos.
+                            "contactos" -> ContactoScreen(
+                                onVolver = {
+                                    pantalla = "admin"
                                 },
-                                onEditarOrganizacion = {
-                                    pantalla = "organizaciones"
+                                onVerContactos = {
+                                    pantalla = "contactos_registrados"
+                                }
+                            )
+
+                            // Con esta pantalla consultamos, editamos y eliminamos contactos.
+                            "contactos_registrados" -> ContactosRegistradosScreen(
+                                onVolverAlFormulario = {
+                                    pantalla = "contactos"
+                                },
+                                onVolver = {
+                                    pantalla = "admin"
+                                },
+                                onEditarContacto = {
+                                    pantalla = "contactos"
                                 }
                             )
 
@@ -280,6 +301,7 @@ fun PantallaLoginAdmin(
 fun PantallaAdmin(
     onGestionarEventos: () -> Unit,
     onGestionarOrganizaciones: () -> Unit,
+    onGestionarContactos: () -> Unit,
     onCerrarSesion: () -> Unit
 ) {
     Column(
@@ -319,6 +341,18 @@ fun PantallaAdmin(
         ) {
             Text("Gestionar organizaciones")
         }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Con este botón accedemos al módulo de gestión de contactos.
+        Button(
+            onClick = onGestionarContactos,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Gestionar contactos")
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
 
         Spacer(modifier = Modifier.height(8.dp))
 
