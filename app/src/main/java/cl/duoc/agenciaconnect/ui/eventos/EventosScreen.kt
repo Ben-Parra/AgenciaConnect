@@ -184,6 +184,24 @@ fun EventosScreen(
 
         Spacer(modifier = Modifier.height(8.dp))
 
+        // Con este mensaje informamos el resultado de la validación o del guardado del evento.
+        uiState.mensaje?.let { mensaje ->
+            Text(
+                text = mensaje,
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (
+                    mensaje.startsWith("No se pudo") ||
+                    mensaje.startsWith("Completa")
+                ) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    MaterialTheme.colorScheme.primary
+                }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
         // Con este botón guardamos un evento nuevo
         // o actualizamos los datos del evento que estamos editando.
         Button(

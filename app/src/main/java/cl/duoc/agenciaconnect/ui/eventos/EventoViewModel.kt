@@ -108,15 +108,26 @@ class EventoViewModel(application: Application) : AndroidViewModel(application) 
         val errorOrganizacion =
             !validarOrganizacionEvento(estado.organizacion)
 
+
+        // Con esta actualización mostramos los errores individuales y el mensaje general.
         _uiState.update {
             it.copy(
                 errorNombre = errorNombre,
                 errorDescripcion = errorDescripcion,
                 errorFecha = errorFecha,
                 errorUbicacion = errorUbicacion,
-                errorOrganizacion = errorOrganizacion
+                errorOrganizacion = errorOrganizacion,
+                mensaje = if (
+                    errorNombre || errorDescripcion || errorFecha ||
+                    errorUbicacion || errorOrganizacion
+                ) {
+                    "Completa los campos obligatorios y verifica la fecha."
+                } else {
+                    null
+                }
             )
         }
+
 
         return !errorNombre &&
                 !errorDescripcion &&
@@ -125,13 +136,14 @@ class EventoViewModel(application: Application) : AndroidViewModel(application) 
                 !errorOrganizacion
     }
 
-    // Con esta función creamos o actualizamos un evento en Room
-    // después de comprobar que todos los campos sean válidos.
+
+    // Con esta función validamos los datos y registramos o actualizamos el evento en Room.
     fun guardarEvento() {
         if (!validarFormulario()) return
 
         val estado = _uiState.value
 
+        // Con este objeto reunimos los datos validados que guardaremos en la base de datos.
         val evento = Evento(
             id = estado.idEnEdicion ?: 0L,
             nombre = estado.nombre.trim(),
@@ -141,20 +153,39 @@ class EventoViewModel(application: Application) : AndroidViewModel(application) 
             organizacion = estado.organizacion.trim()
         )
 
-        // Con esta corrutina ejecutamos la operación correspondiente
-        // sin bloquear la interfaz mientras Room guarda los datos.
+        // Con esta corrutina guardamos el evento y comunicamos el resultado de la operación.
         viewModelScope.launch {
-            if (estado.idEnEdicion == null) {
-                repositorio.insertarEvento(evento)
-            } else {
-                repositorio.actualizarEvento(evento)
+            try {
+                if (estado.idEnEdicion == null) {
+                    repositorio.insertarEvento(evento)
+                } else {
+                    repositorio.actualizarEvento(evento)
+                }
+
+                // Con esta función limpiamos el formulario después de guardar correctamente.
+                limpiarFormulario()
+
+                // Con este mensaje confirmamos si registramos o actualizamos el evento.
+                _uiState.update {
+                    it.copy(
+                        mensaje = if (estado.idEnEdicion == null) {
+                            "Evento registrado correctamente."
+                        } else {
+                            "Evento actualizado correctamente."
+                        }
+                    )
+                }
+            } catch (e: Exception) {
+                // Con este mensaje informamos si ocurrió un problema al guardar el evento.
+                _uiState.update {
+                    it.copy(
+                        mensaje = "No se pudo guardar el evento. Inténtalo nuevamente."
+                    )
+                }
             }
         }
-
-        // Con esta actualización limpiamos el formulario después de guardar.
-        // La lista se actualizará cuando Room emita los nuevos registros.
-        limpiarFormulario()
     }
+
 
     // Con esta función cargamos los datos de un evento
     // para modificarlos desde el formulario.

@@ -1,4 +1,3 @@
-
 package cl.duoc.agenciaconnect.ui.eventos
 
 import cl.duoc.agenciaconnect.data.model.Evento
@@ -28,5 +27,8 @@ data class EventoUiState(
     val idEnEdicion: Long? = null,
 
     // Con esta variable identificamos el evento pendiente de eliminación.
-    val eventoPorEliminar: Evento? = null
+    val eventoPorEliminar: Evento? = null,
+
+    // Con esta propiedad comunicamos los resultados de las operaciones.
+    val mensaje: String? = null
 )

@@ -1,5 +1,7 @@
 package cl.duoc.agenciaconnect
 
+import cl.duoc.agenciaconnect.ui.organizaciones.OrganizacionesScreen
+import cl.duoc.agenciaconnect.ui.organizaciones.OrganizacionesRegistradasScreen
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -78,6 +80,9 @@ class MainActivity : ComponentActivity() {
                                 onGestionarEventos = {
                                     pantalla = "eventos"
                                 },
+                                onGestionarOrganizaciones = {
+                                    pantalla = "organizaciones"
+                                },
                                 onCerrarSesion = {
                                     pantalla = "inicio"
                                 }
@@ -100,6 +105,25 @@ class MainActivity : ComponentActivity() {
                                     pantalla = "eventos"
                                 }
                             )
+
+                            "organizaciones" -> OrganizacionesScreen(
+                                onVolver = {
+                                    pantalla = "admin"
+                                },
+                                onVerOrganizaciones = {
+                                    pantalla = "organizaciones_registradas"
+                                }
+                            )
+
+                            "organizaciones_registradas" -> OrganizacionesRegistradasScreen(
+                                onVolverFormulario = {
+                                    pantalla = "organizaciones"
+                                },
+                                onEditarOrganizacion = {
+                                    pantalla = "organizaciones"
+                                }
+                            )
+
                         }
                     }
                 }
@@ -250,11 +274,12 @@ fun PantallaLoginAdmin(
     }
 }
 
-// Con esta función mostramos el panel administrativo y
-// ofrecemos el acceso a la gestión de eventos.
+
+// Con esta función mostramos el panel administrativo y ofrecemos acceso a los módulos.
 @Composable
 fun PantallaAdmin(
     onGestionarEventos: () -> Unit,
+    onGestionarOrganizaciones: () -> Unit,
     onCerrarSesion: () -> Unit
 ) {
     Column(
@@ -277,6 +302,7 @@ fun PantallaAdmin(
 
         Spacer(modifier = Modifier.height(28.dp))
 
+        // Con este botón accedemos a la gestión de eventos existentes.
         Button(
             onClick = onGestionarEventos,
             modifier = Modifier.fillMaxWidth()
@@ -286,6 +312,17 @@ fun PantallaAdmin(
 
         Spacer(modifier = Modifier.height(8.dp))
 
+        // Con este botón accedemos al nuevo módulo de organizaciones.
+        Button(
+            onClick = onGestionarOrganizaciones,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Gestionar organizaciones")
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Con este botón cerramos la sesión y regresamos al inicio.
         TextButton(
             onClick = onCerrarSesion,
             modifier = Modifier.fillMaxWidth()
@@ -294,6 +331,7 @@ fun PantallaAdmin(
         }
     }
 }
+
 
 // Con esta función previsualizamos la pantalla inicial
 // desde las herramientas de diseño de Android Studio.
