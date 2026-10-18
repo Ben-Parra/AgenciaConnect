@@ -59,6 +59,10 @@ fun OportunidadesRegistradasScreen(
     var filtroEstado by remember { mutableStateOf("Todos") }
     var menuFiltroEstadoAbierto by remember { mutableStateOf(false) }
 
+    // Estados para el nuevo filtro por Prioridad
+    var filtroPrioridad by remember { mutableStateOf("Todas") }
+    var menuFiltroPrioridadAbierto by remember { mutableStateOf(false) }
+
     // Estados reales que coinciden 100% con el formulario
     val estadosFiltro = listOf(
         "Todos",
@@ -71,15 +75,15 @@ fun OportunidadesRegistradasScreen(
         "Oportunidad descartada"
     )
 
-    // Filtrado reactivo:
-    // Si es Supervisor ve todas las oportunidades.
-    // Si es Ejecutivo ve solo las asignadas a su nombre (o las que estén sin responsable asignado).
+    val prioridadesFiltro = listOf("Todas", "Alta", "Media", "Baja")
+
     // Filtrado reactivo de visibilidad por rol:
+    // Si es Supervisor ve todas las oportunidades.
+    // Si es Ejecutivo ve solo las asignadas a su nombre.
     val oportunidadesVisibles = uiState.oportunidades.filter { op ->
         if (esSupervisor) {
             true // El supervisor tiene visibilidad total del pipeline
         } else {
-            // El ejecutivo ve las oportunidades que tengan asignado su nombre exacto
             val nombreEjecutivo = usuarioActual?.nombre.orEmpty().trim()
             op.responsable.trim().equals(nombreEjecutivo, ignoreCase = true)
         }
@@ -89,7 +93,9 @@ fun OportunidadesRegistradasScreen(
         val coincideTexto = oportunidad.nombre.contains(textoBusqueda, ignoreCase = true) ||
                 oportunidad.responsable.contains(textoBusqueda, ignoreCase = true)
         val coincideEstado = if (filtroEstado == "Todos") true else oportunidad.estado.equals(filtroEstado, ignoreCase = true)
-        coincideTexto && coincideEstado
+        val coincidePrioridad = if (filtroPrioridad == "Todas") true else oportunidad.prioridad.equals(filtroPrioridad, ignoreCase = true)
+
+        coincideTexto && coincideEstado && coincidePrioridad
     }
 
     Column(
@@ -120,39 +126,84 @@ fun OportunidadesRegistradasScreen(
             singleLine = true
         )
 
-        // Filtro por Estado
-        Box(modifier = Modifier.fillMaxWidth()) {
-            OutlinedTextField(
-                value = "Filtro estado: $filtroEstado",
-                onValueChange = {},
-                readOnly = true,
-                label = { Text("Filtrar por estado") },
-                modifier = Modifier.fillMaxWidth(),
-                trailingIcon = { Text(if (menuFiltroEstadoAbierto) "▲" else "▼") }
-            )
+        // Fila de Filtros (Estado y Prioridad) distribuidos horizontalmente
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // Filtro por Estado
+            Box(modifier = Modifier.weight(1f)) {
+                OutlinedTextField(
+                    value = filtroEstado,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Estado") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    trailingIcon = { Text(if (menuFiltroEstadoAbierto) "▲" else "▼", fontSize = 12.sp) }
+                )
 
-            Box(
-                Modifier
-                    .matchParentSize()
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = { menuFiltroEstadoAbierto = true }
-                    )
-            )
+                Box(
+                    Modifier
+                        .matchParentSize()
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = { menuFiltroEstadoAbierto = true }
+                        )
+                )
 
-            DropdownMenu(
-                expanded = menuFiltroEstadoAbierto,
-                onDismissRequest = { menuFiltroEstadoAbierto = false }
-            ) {
-                estadosFiltro.forEach { estado ->
-                    DropdownMenuItem(
-                        text = { Text(estado) },
-                        onClick = {
-                            filtroEstado = estado
-                            menuFiltroEstadoAbierto = false
-                        }
-                    )
+                DropdownMenu(
+                    expanded = menuFiltroEstadoAbierto,
+                    onDismissRequest = { menuFiltroEstadoAbierto = false }
+                ) {
+                    estadosFiltro.forEach { estado ->
+                        DropdownMenuItem(
+                            text = { Text(estado) },
+                            onClick = {
+                                filtroEstado = estado
+                                menuFiltroEstadoAbierto = false
+                            }
+                        )
+                    }
+                }
+            }
+
+            // Filtro por Prioridad
+            Box(modifier = Modifier.weight(1f)) {
+                OutlinedTextField(
+                    value = filtroPrioridad,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Prioridad") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    trailingIcon = { Text(if (menuFiltroPrioridadAbierto) "▲" else "▼", fontSize = 12.sp) }
+                )
+
+                Box(
+                    Modifier
+                        .matchParentSize()
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = { menuFiltroPrioridadAbierto = true }
+                        )
+                )
+
+                DropdownMenu(
+                    expanded = menuFiltroPrioridadAbierto,
+                    onDismissRequest = { menuFiltroPrioridadAbierto = false }
+                ) {
+                    prioridadesFiltro.forEach { prioridad ->
+                        DropdownMenuItem(
+                            text = { Text(prioridad) },
+                            onClick = {
+                                filtroPrioridad = prioridad
+                                menuFiltroPrioridadAbierto = false
+                            }
+                        )
+                    }
                 }
             }
         }

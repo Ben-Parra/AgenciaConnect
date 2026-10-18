@@ -1,5 +1,12 @@
 package cl.duoc.agenciaconnect
 
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.activity.compose.BackHandler
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -73,13 +80,23 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             AgenciaConnectTheme {
-                // Con esta variable controlamos la pantalla visible en cada momento.
-                var pantalla by remember { mutableStateOf("inicio") }
+                // Usamos una pila (stack) para recordar el historial de navegación
+                val historialPantallas = remember { mutableStateOf(listOf("inicio")) }
+                val pantallaActual = historialPantallas.value.last()
 
-                // Con esta variable recordamos al usuario que inició sesión para controlar sus permisos y rol.
                 var usuarioActual by remember { mutableStateOf<cl.duoc.agenciaconnect.data.model.Usuario?>(null) }
-                // Con esta variable guardamos la oportunidad seleccionada para revisar su bitácora de seguimiento.
                 var oportunidadSeleccionada by remember { mutableStateOf<cl.duoc.agenciaconnect.data.model.Oportunidad?>(null) }
+
+                // ── MANEJO DEL BOTÓN ATRÁS FÍSICO ──────────────────────────────
+                BackHandler(enabled = historialPantallas.value.size > 1) {
+                    // Si hay más de una pantalla en el historial, al presionar atrás sacamos la última
+                    historialPantallas.value = historialPantallas.value.dropLast(1)
+                }
+
+                // Función auxiliar para navegar hacia adelante agregando a la pila
+                fun navegarA(nuevaPantalla: String) {
+                    historialPantallas.value = historialPantallas.value + nuevaPantalla
+                }
 
                 Scaffold(
                     modifier = Modifier.fillMaxSize()
@@ -89,153 +106,108 @@ class MainActivity : ComponentActivity() {
                             .fillMaxSize()
                             .padding(innerPadding)
                     ) {
-                        // Con este contenedor animado aplicamos transiciones fluidas
-                        // entre las pantallas del sistema (slide + fade), cumpliendo el
-                        // requisito de transición animada entre pantallas del enrutador.
                         AnimatedContent(
-                            targetState = pantalla,
+                            targetState = pantallaActual,
                             transitionSpec = {
                                 (slideInHorizontally(animationSpec = tween(300)) { ancho -> ancho } +
-                                    fadeIn(animationSpec = tween(300))) togetherWith
-                                (slideOutHorizontally(animationSpec = tween(300)) { ancho -> -ancho } +
-                                    fadeOut(animationSpec = tween(300)))
+                                        fadeIn(animationSpec = tween(300))) togetherWith
+                                        (slideOutHorizontally(animationSpec = tween(300)) { ancho -> -ancho } +
+                                                fadeOut(animationSpec = tween(300)))
                             },
                             label = "Transición entre pantallas"
-                        ) { pantallaActual ->
-                        when (pantallaActual) {
-                            "inicio" -> PantallaInicio(
-                                onAcceso = {
-                                    pantalla = "login"
-                                }
-                            )
+                        ) { pantalla ->
+                            when (pantalla) {
+                                "inicio" -> PantallaInicio(
+                                    onAcceso = {
+                                        navegarA("login")
+                                    }
+                                )
 
-                            "login" -> PantallaLoginAdmin(
-                                onAccesoCorrecto = { usuario ->
-                                    usuarioActual = usuario
-                                    pantalla = "admin"
-                                },
-                                onVolver = {
-                                    pantalla = "inicio"
-                                }
-                            )
+                                "login" -> PantallaLoginAdmin(
+                                    onAccesoCorrecto = { usuario ->
+                                        usuarioActual = usuario
+                                        navegarA("admin")
+                                    },
+                                    onVolver = {
+                                        // Si vuelve al inicio, limpiamos el historial y dejamos solo "inicio"
+                                        historialPantallas.value = listOf("inicio")
+                                    }
+                                )
 
-                            "admin" -> PantallaAdmin(
-                                usuario = usuarioActual,
-                                onGestionarEventos = {
-                                    pantalla = "eventos"
-                                },
-                                onGestionarOrganizaciones = {
-                                    pantalla = "organizaciones"
-                                },
-                                onGestionarContactos = {
-                                    pantalla = "contactos"
-                                },
-                                onGestionarOportunidades = {
-                                    pantalla = "oportunidades"
-                                },
-                                onCerrarSesion = {
-                                    usuarioActual = null
-                                    pantalla = "inicio"
-                                }
-                            )
+                                "admin" -> PantallaAdmin(
+                                    usuario = usuarioActual,
+                                    onGestionarEventos = { navegarA("eventos") },
+                                    onGestionarOrganizaciones = { navegarA("organizaciones") },
+                                    onGestionarContactos = { navegarA("contactos") },
+                                    onGestionarOportunidades = { navegarA("oportunidades") },
+                                    onCerrarSesion = {
+                                        usuarioActual = null
+                                        historialPantallas.value = listOf("inicio")
+                                    }
+                                )
 
-                            "eventos" -> EventosScreen(
-                                onVolver = {
-                                    pantalla = "admin"
-                                },
-                                onVerEventos = {
-                                    pantalla = "eventos_registrados"
-                                }
-                            )
+                                "eventos" -> EventosScreen(
+                                    onVolver = { historialPantallas.value = historialPantallas.value.dropLast(1) },
+                                    onVerEventos = { navegarA("eventos_registrados") }
+                                )
 
-                            "eventos_registrados" -> EventosRegistradosScreen(
-                                onVolverFormulario = { pantalla = "eventos" },
-                                onVolver = { pantalla = "admin" },
-                                onEditarEvento = { pantalla = "eventos" }
-                            )
+                                "eventos_registrados" -> EventosRegistradosScreen(
+                                    onVolverFormulario = { historialPantallas.value = historialPantallas.value.dropLast(1) },
+                                    onVolver = { historialPantallas.value = historialPantallas.value.dropLast(2) }, // Salta directo al admin
+                                    onEditarEvento = { navegarA("eventos") }
+                                )
 
-                            "organizaciones" -> OrganizacionesScreen(
-                                onVolver = {
-                                    pantalla = "admin"
-                                },
-                                onVerOrganizaciones = {
-                                    pantalla = "organizaciones_registradas"
-                                }
-                            )
+                                "organizaciones" -> OrganizacionesScreen(
+                                    onVolver = { historialPantallas.value = historialPantallas.value.dropLast(1) },
+                                    onVerOrganizaciones = { navegarA("organizaciones_registradas") }
+                                )
 
-                            "organizaciones_registradas" -> OrganizacionesRegistradasScreen(
-                                onVolverFormulario = { pantalla = "organizaciones" },
-                                onVolver = { pantalla = "admin" },
-                                onEditarOrganizacion = { pantalla = "organizaciones" }
-                            )
+                                "organizaciones_registradas" -> OrganizacionesRegistradasScreen(
+                                    onVolverFormulario = { historialPantallas.value = historialPantallas.value.dropLast(1) },
+                                    onVolver = { historialPantallas.value = historialPantallas.value.dropLast(2) },
+                                    onEditarOrganizacion = { navegarA("organizaciones") }
+                                )
 
-                            // Con esta pantalla registramos contactos y editamos sus datos.
-                            "contactos" -> ContactoScreen(
-                                onVolver = {
-                                    pantalla = "admin"
-                                },
-                                onVerContactos = {
-                                    pantalla = "contactos_registrados"
-                                }
-                            )
+                                "contactos" -> ContactoScreen(
+                                    onVolver = { historialPantallas.value = historialPantallas.value.dropLast(1) },
+                                    onVerContactos = { navegarA("contactos_registrados") }
+                                )
 
-                            // Con esta pantalla consultamos, editamos y eliminamos contactos.
-                            "contactos_registrados" -> ContactosRegistradosScreen(
-                                onVolverAlFormulario = {
-                                    pantalla = "contactos"
-                                },
-                                onVolver = {
-                                    pantalla = "admin"
-                                },
-                                onEditarContacto = {
-                                    pantalla = "contactos"
-                                }
-                            )
+                                "contactos_registrados" -> ContactosRegistradosScreen(
+                                    onVolverAlFormulario = { historialPantallas.value = historialPantallas.value.dropLast(1) },
+                                    onVolver = { historialPantallas.value = historialPantallas.value.dropLast(2) },
+                                    onEditarContacto = { navegarA("contactos") }
+                                )
 
-                            // Con esta pantalla registramos oportunidades comerciales respetando los permisos del rol.
-                            "oportunidades" -> OportunidadesScreen(
-                                usuarioActual = usuarioActual,
-                                onVolver = {
-                                    pantalla = "admin"
-                                },
-                                onVerOportunidades = {
-                                    pantalla = "oportunidades_registradas"
-                                }
-                            )
+                                "oportunidades" -> OportunidadesScreen(
+                                    usuarioActual = usuarioActual,
+                                    onVolver = { historialPantallas.value = historialPantallas.value.dropLast(1) },
+                                    onVerOportunidades = { navegarA("oportunidades_registradas") }
+                                )
 
-                            // Con esta pantalla consultamos, filtramos y gestionamos oportunidades según el rol.
-                            "oportunidades_registradas" -> OportunidadesRegistradasScreen(
-                                usuarioActual = usuarioActual,
-                                onVolverFormulario = {
-                                    pantalla = "oportunidades"
-                                },
-                                onVolver = {
-                                    pantalla = "admin"
-                                },
-                                onEditarOportunidad = {
-                                    pantalla = "oportunidades"
-                                },
-                                onVerSeguimiento = { oportunidad ->
-                                    oportunidadSeleccionada = oportunidad
-                                    pantalla = "seguimiento"
-                                }
-                            )
+                                "oportunidades_registradas" -> OportunidadesRegistradasScreen(
+                                    usuarioActual = usuarioActual,
+                                    onVolverFormulario = { navegarA("oportunidades") },
+                                    onVolver = { historialPantallas.value = historialPantallas.value.dropLast(2) },
+                                    onEditarOportunidad = { navegarA("oportunidades") },
+                                    onVerSeguimiento = { oportunidad ->
+                                        oportunidadSeleccionada = oportunidad
+                                        navegarA("seguimiento")
+                                    }
+                                )
 
-                            // Con esta pantalla revisamos la bitácora de seguimiento y agendamos en el calendario nativo.
-                            "seguimiento" -> {
-                                oportunidadSeleccionada?.let { op ->
-                                    cl.duoc.agenciaconnect.ui.seguimientos.SeguimientoScreen(
-                                        oportunidad = op,
-                                        usuarioActual = usuarioActual,
-                                        onVolver = {
-                                            pantalla = "oportunidades_registradas"
-                                        }
-                                    )
-                                } ?: run {
-                                    pantalla = "oportunidades_registradas"
+                                "seguimiento" -> {
+                                    oportunidadSeleccionada?.let { op ->
+                                        cl.duoc.agenciaconnect.ui.seguimientos.SeguimientoScreen(
+                                            oportunidad = op,
+                                            usuarioActual = usuarioActual,
+                                            onVolver = { historialPantallas.value = historialPantallas.value.dropLast(1) }
+                                        )
+                                    } ?: run {
+                                        historialPantallas.value = historialPantallas.value.dropLast(1)
+                                    }
                                 }
                             }
-                        }
                         }
                     }
                 }
@@ -244,7 +216,8 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// Con esta función presentamos la aplicación y ofrecemos el acceso principal al sistema.
+// Con esta función presentamos la aplicación y ofrecemos el acceso principal al sistema,
+// incluyendo el logo corporativo integrado elegantemente en la cabecera.
 @Composable
 fun PantallaInicio(
     onAcceso: () -> Unit
@@ -261,6 +234,20 @@ fun PantallaInicio(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
+            // ── LOGO CORPORATIVO EN LA CABECERA ──────────────────────────
+            // Mostramos el logo de la app con un tamaño controlado (80.dp)
+            // utilizando un contenedor circular o esquinas redondeadas.
+            Image(
+                painter = painterResource(id = R.drawable.ic_launcher_logo),
+                contentDescription = "Logo de AgenciaConnect",
+                modifier = Modifier
+                    .size(80.dp)
+                    .clip(CircleShape),
+                contentScale = ContentScale.Crop
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             Text(
                 text = "AgenciaConnect",
                 fontSize = 30.sp,
@@ -268,17 +255,20 @@ fun PantallaInicio(
                 color = MaterialTheme.colorScheme.primary
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             Text(
                 text = "Gestión de oportunidades y eventos corporativos",
-                fontSize = 16.sp
+                fontSize = 14.sp,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                color = MaterialTheme.colorScheme.secondary
             )
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
             Text(
-                text = "Centraliza tus eventos, oportunidades y seguimientos en un solo lugar."
+                text = "Centraliza tus eventos, oportunidades y seguimientos en un solo lugar.",
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
 
             Spacer(modifier = Modifier.height(28.dp))
@@ -481,7 +471,7 @@ fun PantallaLoginAdmin(
     }
 }
 
-// Con esta función mostramos el panel principal y reflejamos el usuario autenticado.
+// Con esta función mostramos el panel principal, un dashboard de resumen y reflejamos el usuario autenticado.
 @Composable
 fun PantallaAdmin(
     usuario: cl.duoc.agenciaconnect.data.model.Usuario?,
@@ -494,6 +484,7 @@ fun PantallaAdmin(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(androidx.compose.foundation.rememberScrollState())
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -505,7 +496,7 @@ fun PantallaAdmin(
             color = MaterialTheme.colorScheme.primary
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
         // Con este texto identificamos al colaborador y su perfil asignado.
         Text(
@@ -518,7 +509,33 @@ fun PantallaAdmin(
             style = MaterialTheme.typography.bodyMedium
         )
 
-        Spacer(modifier = Modifier.height(28.dp))
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // Tarjeta Dashboard / Resumen de Estado del Sistema
+        androidx.compose.material3.Card(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    text = "Resumen de Gestión (Dashboard)",
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleSmall
+                )
+                Text(
+                    text = if (usuario?.rol == "SUPERVISOR") {
+                        "• Visibilidad global del pipeline habilitada.\n• Gestión completa de eventos y asignaciones."
+                    } else {
+                        "• Vista filtrada a tus oportunidades asignadas.\n• Registro de seguimientos y calendario activo."
+                    },
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
 
         Button(
             onClick = onGestionarEventos,

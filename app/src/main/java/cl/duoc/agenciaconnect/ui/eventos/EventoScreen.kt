@@ -7,8 +7,8 @@ import android.net.Uri
 import android.os.Build
 
 // Imports para el selector de imágenes del sistema (Photo Picker).
-// ActivityResultContracts.PickVisualMedia es el mecanismo recomendado
-// por Android para seleccionar imágenes sin solicitar permisos de galería.
+// ActivityResultContracts.PickVisualMedia is the recommended mechanism
+// by Android to select images without requesting gallery permissions.
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.result.PickVisualMediaRequest
@@ -78,6 +78,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import android.graphics.Bitmap
 import android.graphics.ImageDecoder
+import androidx.compose.runtime.saveable.rememberSaveable
+import cl.duoc.agenciaconnect.util.crearUriFotografia
 
 // ────────────────────────────────────────────────────────────────────────────
 // TRANSFORMACIÓN VISUAL DE FECHA
@@ -210,11 +212,31 @@ fun EventosScreen(
     }
 
     // ────────────────────────────────────────────────────────────────────
+    // LANZADOR DE CÁMARA (TakePicture)
+    // ────────────────────────────────────────────────────────────────────
+    // Con este launcher abrimos la cámara del dispositivo para capturar una fotografía.
+    var uriPendiente by rememberSaveable { mutableStateOf<Uri?>(null) }
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { fotoTomada ->
+        if (fotoTomada && uriPendiente != null) {
+            viewModel.cambiarImagenUri(uriPendiente.toString())
+        }
+        uriPendiente = null
+    }
+
+    // ────────────────────────────────────────────────────────────────────
     // CARGA DEL BITMAP PARA VISTA PREVIA
     // ────────────────────────────────────────────────────────────────────
     val bitmapVistaPrevia = remember(uiState.imagenUri) {
         if (uiState.imagenUri.isNotBlank()) {
-            cargarBitmapDesdeUri(context, Uri.parse(uiState.imagenUri))
+            // Soportamos tanto URI normal como recursos drawable locales
+            if (uiState.imagenUri.all { it.isDigit() }) {
+                val resId = uiState.imagenUri.toInt()
+                android.graphics.BitmapFactory.decodeResource(context.resources, resId)
+            } else {
+                cargarBitmapDesdeUri(context, Uri.parse(uiState.imagenUri))
+            }
         } else {
             null
         }
@@ -224,6 +246,18 @@ fun EventosScreen(
     var menuOrganizacionesAbierto by remember {
         mutableStateOf(false)
     }
+
+    // Estado para controlar la apertura del menú de imágenes precargadas
+    var menuImagenesAbierto by remember { mutableStateOf(false) }
+
+    // Lista de las 5 imágenes precargadas en res/drawable
+    val imagenesPrecargadas = listOf(
+        "imagen1" to "Imagen Precargada 1",
+        "imagen2" to "Imagen Precargada 2",
+        "imagen3" to "Imagen Precargada 3",
+        "imagen4" to "Imagen Precargada 4",
+        "imagen5" to "Imagen Precargada 5"
+    )
 
     Column(
         modifier = Modifier
@@ -478,7 +512,7 @@ fun EventosScreen(
             )
         }
 
-        // ── Botón de selección de imagen ─────────────────────────────────
+        // ── Botón de selección de imagen desde Galería ───────────────────
         // Su color cambia animadamente gracias a animateColorAsState.
         Button(
             onClick = {
@@ -488,8 +522,54 @@ fun EventosScreen(
             colors = ButtonDefaults.buttonColors(containerColor = colorBotonImagen)
         ) {
             Text(
-                text = if (hayImagen) "Cambiar imagen" else "Seleccionar imagen"
+                text = if (hayImagen) "Cambiar imagen de galería" else "Seleccionar de galería"
             )
+        }
+
+        // ── Botón desplegable para elegir imágenes precargadas de la app ──
+        Box(modifier = Modifier.fillMaxWidth()) {
+            OutlinedButton(
+                onClick = { menuImagenesAbierto = true },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Elegir imagen precargada de la app ▼")
+            }
+
+            DropdownMenu(
+                expanded = menuImagenesAbierto,
+                onDismissRequest = { menuImagenesAbierto = false }
+            ) {
+                imagenesPrecargadas.forEach { (nombreDrawable, etiqueta) ->
+                    DropdownMenuItem(
+                        text = { Text(etiqueta) },
+                        onClick = {
+                            val resId = context.resources.getIdentifier(nombreDrawable, "drawable", context.packageName)
+                            if (resId != 0) {
+                                viewModel.cambiarImagenUri(resId.toString())
+                            }
+                            menuImagenesAbierto = false
+                        }
+                    )
+                }
+            }
+        }
+
+        // ── Botón de cámara (recurso nativo) ─────────────────────────────
+        // Con este botón permitimos capturar una fotografía directamente con la cámara.
+        OutlinedButton(
+            onClick = {
+                try {
+                    val nuevaUri = crearUriFotografia(context)
+                    uriPendiente = nuevaUri
+                    cameraLauncher.launch(nuevaUri)
+                } catch (e: Exception) {
+                    uriPendiente = null
+                    e.printStackTrace()
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Tomar fotografía con cámara")
         }
 
         Spacer(modifier = Modifier.height(8.dp))

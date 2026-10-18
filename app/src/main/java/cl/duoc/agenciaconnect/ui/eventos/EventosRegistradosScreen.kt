@@ -62,20 +62,37 @@ import android.graphics.ImageDecoder
 // FUNCIÓN AUXILIAR PARA CARGAR IMAGEN EN LA TARJETA
 // ────────────────────────────────────────────────────────────────────────────
 
-// Con esta función convertimos la URI guardada en el evento (como String)
-// en un Bitmap que podemos mostrar en la tarjeta de la lista.
+// Con esta función adaptada convertimos la URI del evento en un Bitmap,
+// soportando tanto fotos de galería/cámara como recursos locales de drawable.
 private fun cargarBitmapEvento(context: android.content.Context, uriTexto: String): Bitmap? {
     if (uriTexto.isBlank()) return null
     return try {
-        val uri = Uri.parse(uriTexto)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            val fuente = ImageDecoder.createSource(context.contentResolver, uri)
-            ImageDecoder.decodeBitmap(fuente)
+        // Si la URI empieza con número (guardamos el ID del drawable directamente)
+        if (uriTexto.all { it.isDigit() }) {
+            val resId = uriTexto.toInt()
+            android.graphics.BitmapFactory.decodeResource(context.resources, resId)
+        } else if (uriTexto.startsWith("android.resource://")) {
+            // Si viene con formato resource, extraemos el nombre o ID
+            val partes = uriTexto.split("/")
+            val nombreDrawable = partes.last()
+            val resId = context.resources.getIdentifier(nombreDrawable, "drawable", context.packageName)
+            if (resId != 0) {
+                android.graphics.BitmapFactory.decodeResource(context.resources, resId)
+            } else {
+                null
+            }
         } else {
-            @Suppress("DEPRECATION")
-            android.graphics.BitmapFactory.decodeStream(
-                context.contentResolver.openInputStream(uri)
-            )
+            // Carga normal para URI de galería o cámara (ContentResolver / ImageDecoder)
+            val uri = Uri.parse(uriTexto)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                val fuente = ImageDecoder.createSource(context.contentResolver, uri)
+                ImageDecoder.decodeBitmap(fuente)
+            } else {
+                @Suppress("DEPRECATION")
+                android.graphics.BitmapFactory.decodeStream(
+                    context.contentResolver.openInputStream(uri)
+                )
+            }
         }
     } catch (e: Exception) {
         null
