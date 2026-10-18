@@ -132,6 +132,13 @@ fun EventosRegistradosScreen(
                 ) { evento ->
                     TarjetaEvento(
                         evento = evento,
+                        modifier = Modifier.animateItem(
+                            // Con null delegamos la entrada/salida al AnimatedVisibility interno
+                            // y dejamos que animateItem solo anime el reordenamiento (placement).
+                            fadeInSpec = null,
+                            fadeOutSpec = null,
+                            placementSpec = tween(durationMillis = 300)
+                        ),
                         onEditar = {
                             viewModel.cargarEventoParaEditar(evento)
                             onEditarEvento()
@@ -206,6 +213,7 @@ fun EventosRegistradosScreen(
 @Composable
 private fun TarjetaEvento(
     evento: Evento,
+    modifier: Modifier = Modifier,
     onEditar: () -> Unit,
     onEliminar: () -> Unit
 ) {
@@ -233,6 +241,7 @@ private fun TarjetaEvento(
 
     AnimatedVisibility(
         visible = visible,
+        modifier = modifier,
         enter = fadeIn(animationSpec = tween(durationMillis = 400)) +
                 expandVertically(animationSpec = tween(durationMillis = 400))
     ) {

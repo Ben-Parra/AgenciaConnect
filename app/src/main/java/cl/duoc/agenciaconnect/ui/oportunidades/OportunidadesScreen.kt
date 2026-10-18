@@ -2,10 +2,16 @@ package cl.duoc.agenciaconnect.ui.oportunidades
 
 import cl.duoc.agenciaconnect.data.model.Usuario
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,6 +36,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -517,10 +524,12 @@ fun OportunidadesScreen(
         )
 
         // Con este bloque animado mostramos mensajes informativos de éxito o error.
+        // Usamos expandVertically/shrinkVertically para que el mensaje entre y salga
+        // de forma fluida, empujando el contenido inferior en lugar de aparecer de golpe.
         AnimatedVisibility(
             visible = uiState.mensaje != null,
-            enter = fadeIn(),
-            exit = fadeOut()
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically()
         ) {
             uiState.mensaje?.let { mensaje ->
                 Text(
@@ -542,10 +551,22 @@ fun OportunidadesScreen(
         Spacer(modifier = Modifier.height(8.dp))
 
         // Con este botón guardamos la nueva oportunidad o actualizamos los cambios.
+        // Aplicamos una microinteracción de escala con animateFloatAsState al pulsar.
+        val interactionSourceGuardar = remember { MutableInteractionSource() }
+        val presionadoGuardar by interactionSourceGuardar.collectIsPressedAsState()
+        val escalaGuardar by animateFloatAsState(
+            targetValue = if (presionadoGuardar) 0.96f else 1f,
+            animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+            label = "Escala del botón guardar oportunidad"
+        )
+
         Button(
             onClick = { viewModel.guardarOportunidad() },
             enabled = !uiState.guardando,
-            modifier = Modifier.fillMaxWidth()
+            interactionSource = interactionSourceGuardar,
+            modifier = Modifier
+                .fillMaxWidth()
+                .scale(escalaGuardar)
         ) {
             Text(
                 when {

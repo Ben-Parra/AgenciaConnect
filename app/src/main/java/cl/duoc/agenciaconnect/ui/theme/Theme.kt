@@ -9,6 +9,8 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
 private val DarkColorScheme = darkColorScheme(
@@ -32,6 +34,32 @@ private val LightColorScheme = lightColorScheme(
     onSurface = Color(0xFF1C1B1F),
     */
 )
+
+// ────────────────────────────────────────────────────────────────────────────
+// COLORES SEMÁNTICOS DE NEGOCIO
+// ────────────────────────────────────────────────────────────────────────────
+// Con esta clase centralizamos los colores asociados a estados y prioridades
+// de las oportunidades, de modo que las pantallas nunca usen hexadecimales sueltos.
+data class ColoresOportunidad(
+    val prioridadAlta: Color = PrioridadAlta,
+    val prioridadMedia: Color = PrioridadMedia,
+    val prioridadBaja: Color = PrioridadBaja,
+    val estadoConfirmado: Color = EstadoConfirmado,
+    val estadoDescartado: Color = EstadoDescartado,
+    val estadoEnEspera: Color = EstadoEnEspera,
+    val potencialAlto: Color = PotencialAlto,
+    val potencialMedio: Color = PotencialMedio,
+    val potencialBajo: Color = PotencialBajo
+)
+
+// Con este CompositionLocal exponemos la paleta semántica a toda la app.
+val LocalColoresOportunidad = staticCompositionLocalOf { ColoresOportunidad() }
+
+// Con esta propiedad de extensión accedemos a los colores semánticos
+// igual que MaterialTheme.colorScheme, manteniendo el código legible.
+val MaterialTheme.coloresOportunidad: ColoresOportunidad
+    @Composable
+    get() = LocalColoresOportunidad.current
 
 @Composable
 fun AgenciaConnectTheme(

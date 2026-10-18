@@ -2,6 +2,7 @@ package cl.duoc.agenciaconnect.ui.oportunidades
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,6 +37,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cl.duoc.agenciaconnect.data.model.Oportunidad
 import cl.duoc.agenciaconnect.data.model.Usuario
+import cl.duoc.agenciaconnect.ui.theme.coloresOportunidad
 
 // Con esta pantalla listamos las oportunidades, permitimos búsqueda, filtros por estado/prioridad
 // y aplicamos restricciones según si el usuario es Supervisor o Ejecutivo.
@@ -181,6 +183,11 @@ fun OportunidadesRegistradasScreen(
                     TarjetaOportunidad(
                         oportunidad = oportunidad,
                         esSupervisor = esSupervisor,
+                        modifier = Modifier.animateItem(
+                            fadeInSpec = tween(durationMillis = 300),
+                            placementSpec = tween(durationMillis = 300),
+                            fadeOutSpec = tween(durationMillis = 300)
+                        ),
                         onEditar = {
                             viewModel.cargarOportunidadParaEditar(oportunidad)
                             onEditarOportunidad(oportunidad)
@@ -238,12 +245,15 @@ fun OportunidadesRegistradasScreen(
 private fun TarjetaOportunidad(
     oportunidad: Oportunidad,
     esSupervisor: Boolean,
+    modifier: Modifier = Modifier,
     onEditar: () -> Unit,
     onVerSeguimiento: () -> Unit,
     onEliminar: () -> Unit
 ) {
+    val colores = MaterialTheme.coloresOportunidad
+
     Card(
-        modifier = Modifier.fillMaxWidth()
+        modifier = modifier.fillMaxWidth()
     ) {
         Column(
             modifier = Modifier
@@ -264,16 +274,27 @@ private fun TarjetaOportunidad(
                 Text(
                     text = oportunidad.prioridad,
                     fontWeight = FontWeight.Bold,
+                    // Con los colores semánticos centralizados evitamos hexadecimales sueltos.
                     color = when (oportunidad.prioridad) {
-                        "Alta" -> MaterialTheme.colorScheme.error
-                        "Media" -> MaterialTheme.colorScheme.primary
-                        else -> MaterialTheme.colorScheme.secondary
+                        "Alta" -> colores.prioridadAlta
+                        "Media" -> colores.prioridadMedia
+                        else -> colores.prioridadBaja
                     }
                 )
             }
 
             Text("Tipo: ${oportunidad.tipo}", style = MaterialTheme.typography.bodySmall)
-            Text("Estado: ${oportunidad.estado}", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall)
+            Text(
+                text = "Estado: ${oportunidad.estado}",
+                fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.typography.bodySmall,
+                color = when (oportunidad.estado) {
+                    "Participación confirmada" -> colores.estadoConfirmado
+                    "Oportunidad descartada" -> colores.estadoDescartado
+                    "En espera de respuesta" -> colores.estadoEnEspera
+                    else -> MaterialTheme.colorScheme.onSurface
+                }
+            )
             Text("Potencial: ${oportunidad.potencial}", style = MaterialTheme.typography.bodySmall)
             Text("Responsable: ${oportunidad.responsable}", style = MaterialTheme.typography.bodySmall)
 

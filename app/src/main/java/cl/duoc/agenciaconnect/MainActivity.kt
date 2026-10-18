@@ -1,11 +1,26 @@
 package cl.duoc.agenciaconnect
 
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.layout.Row
-import androidx.compose.material3.OutlinedButton
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,6 +44,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
@@ -73,7 +89,20 @@ class MainActivity : ComponentActivity() {
                             .fillMaxSize()
                             .padding(innerPadding)
                     ) {
-                        when (pantalla) {
+                        // Con este contenedor animado aplicamos transiciones fluidas
+                        // entre las pantallas del sistema (slide + fade), cumpliendo el
+                        // requisito de transición animada entre pantallas del enrutador.
+                        AnimatedContent(
+                            targetState = pantalla,
+                            transitionSpec = {
+                                (slideInHorizontally(animationSpec = tween(300)) { ancho -> ancho } +
+                                    fadeIn(animationSpec = tween(300))) togetherWith
+                                (slideOutHorizontally(animationSpec = tween(300)) { ancho -> -ancho } +
+                                    fadeOut(animationSpec = tween(300)))
+                            },
+                            label = "Transición entre pantallas"
+                        ) { pantallaActual ->
+                        when (pantallaActual) {
                             "inicio" -> PantallaInicio(
                                 onAcceso = {
                                     pantalla = "login"
@@ -207,6 +236,7 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                         }
+                        }
                     }
                 }
             }
@@ -323,17 +353,34 @@ fun PantallaLoginAdmin(
             modifier = Modifier.fillMaxWidth()
         )
 
-        if (uiState.mensajeError.isNotBlank()) {
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = uiState.mensajeError,
-                color = MaterialTheme.colorScheme.error
-            )
+        // Con este bloque animado mostramos el mensaje de error de acceso
+        // de forma fluida con expand/shrink en lugar de aparecer de golpe.
+        AnimatedVisibility(
+            visible = uiState.mensajeError.isNotBlank(),
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically()
+        ) {
+            Column {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = uiState.mensajeError,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
         // Con este botón ejecutamos la autenticación y pasamos el usuario autenticado sin desfase.
+        // Aplicamos una microinteracción de escala con animateFloatAsState al pulsar.
+        val interactionSourceIngresar = remember { MutableInteractionSource() }
+        val presionadoIngresar by interactionSourceIngresar.collectIsPressedAsState()
+        val escalaIngresar by animateFloatAsState(
+            targetValue = if (presionadoIngresar) 0.96f else 1f,
+            animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+            label = "Escala del botón ingresar"
+        )
+
         Button(
             onClick = {
                 loginViewModel.autenticar { usuarioLogueado ->
@@ -341,7 +388,10 @@ fun PantallaLoginAdmin(
                 }
             },
             enabled = !uiState.cargando,
-            modifier = Modifier.fillMaxWidth()
+            interactionSource = interactionSourceIngresar,
+            modifier = Modifier
+                .fillMaxWidth()
+                .scale(escalaIngresar)
         ) {
             Text(if (uiState.cargando) "Verificando..." else "Ingresar")
         }

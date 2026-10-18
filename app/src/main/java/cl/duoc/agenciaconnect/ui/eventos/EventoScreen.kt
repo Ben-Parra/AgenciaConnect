@@ -19,6 +19,9 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -28,6 +31,8 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -57,6 +62,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -489,30 +495,50 @@ fun EventosScreen(
         Spacer(modifier = Modifier.height(8.dp))
 
         // Con este mensaje informamos el resultado de la validación o del guardado del evento.
-        uiState.mensaje?.let { mensaje ->
-            Text(
-                text = mensaje,
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (
-                    mensaje.startsWith("No se pudo") ||
-                    mensaje.startsWith("Completa") ||
-                    mensaje.startsWith("Registra") ||
-                    mensaje.startsWith("Selecciona")
-                ) {
-                    MaterialTheme.colorScheme.error
-                } else {
-                    MaterialTheme.colorScheme.primary
-                }
-            )
+        // Lo envolvemos en AnimatedVisibility con expand/shrink para que entre y salga
+        // de forma fluida, empujando el contenido inferior.
+        AnimatedVisibility(
+            visible = uiState.mensaje != null,
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically()
+        ) {
+            uiState.mensaje?.let { mensaje ->
+                Text(
+                    text = mensaje,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (
+                        mensaje.startsWith("No se pudo") ||
+                        mensaje.startsWith("Completa") ||
+                        mensaje.startsWith("Registra") ||
+                        mensaje.startsWith("Selecciona")
+                    ) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.primary
+                    }
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(8.dp))
 
         // Con este botón guardamos un evento nuevo
         // o actualizamos los datos del evento que estamos editando.
+        // Aplicamos una microinteracción de escala con animateFloatAsState al pulsar.
+        val interactionSourceGuardarEvento = remember { MutableInteractionSource() }
+        val presionadoGuardarEvento by interactionSourceGuardarEvento.collectIsPressedAsState()
+        val escalaGuardarEvento by animateFloatAsState(
+            targetValue = if (presionadoGuardarEvento) 0.96f else 1f,
+            animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+            label = "Escala del botón guardar evento"
+        )
+
         Button(
             onClick = { viewModel.guardarEvento() },
-            modifier = Modifier.fillMaxWidth()
+            interactionSource = interactionSourceGuardarEvento,
+            modifier = Modifier
+                .fillMaxWidth()
+                .scale(escalaGuardarEvento)
         ) {
             Text(
                 if (uiState.idEnEdicion == null) {

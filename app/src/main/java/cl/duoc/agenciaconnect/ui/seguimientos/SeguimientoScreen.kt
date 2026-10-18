@@ -2,6 +2,7 @@ package cl.duoc.agenciaconnect.ui.seguimientos
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -205,8 +206,16 @@ fun SeguimientoScreen(
                     Text("Aún no se han registrado gestiones para esta oportunidad.")
                 }
             } else {
-                items(uiState.seguimientos) { seg ->
-                    Card(modifier = Modifier.fillMaxWidth()) {
+                items(uiState.seguimientos, key = { it.id }) { seg ->
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .animateItem(
+                                fadeInSpec = tween(durationMillis = 300),
+                                placementSpec = tween(durationMillis = 300),
+                                fadeOutSpec = tween(durationMillis = 300)
+                            )
+                    ) {
                         Column(modifier = Modifier.padding(12.dp)) {
                             Text(
                                 text = "${seg.tipoAccion} - ${seg.fechaHora}",
