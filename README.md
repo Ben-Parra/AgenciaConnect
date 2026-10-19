@@ -58,3 +58,6 @@ Ejecutivo 1: carlos.comercial@agencia.cl / Contraseña: eje123
 Ejecutivo 2: marcela.ventas@agencia.cl / Contraseña: eje123
 
 Ejecutivo 3: felipe.convenios@agencia.cl / Contraseña: eje123
+
+
+Link Trello: https://trello.com/b/AjHESmxV/tareas
