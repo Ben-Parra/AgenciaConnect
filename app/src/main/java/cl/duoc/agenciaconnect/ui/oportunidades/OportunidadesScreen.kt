@@ -1,5 +1,6 @@
 package cl.duoc.agenciaconnect.ui.oportunidades
 
+import cl.duoc.agenciaconnect.util.FechaVisualTransformation
 import cl.duoc.agenciaconnect.data.model.Usuario
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
@@ -21,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
@@ -38,6 +40,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -92,7 +95,6 @@ fun OportunidadesScreen(
 
     val prioridades = listOf("Alta", "Media", "Baja")
     val potenciales = listOf("Alto", "Medio", "Bajo")
-
 
     // REGLA DE NEGOCIO: El ejecutivo no puede confirmar ni descartar definitivamente oportunidades.
     val estados = if (esSupervisor) {
@@ -149,6 +151,26 @@ fun OportunidadesScreen(
             },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
+        )
+
+        // ── NUEVO CAMPO: Fecha de Detección (Validación: Hoy o anterior) ──
+        OutlinedTextField(
+            value = uiState.fechaDeteccion,
+            onValueChange = viewModel::cambiarFechaDeteccion,
+            label = { Text("Fecha de detección (DD/MM/AAAA)") },
+            placeholder = { Text("Ej: 15102026") },
+            isError = uiState.errorFechaDeteccion,
+            supportingText = {
+                if (uiState.errorFechaDeteccion) {
+                    Text("Debe ser una fecha válida de hoy o anterior")
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Number
+            ),
+            visualTransformation = FechaVisualTransformation() // <--- ¡Esta es la magia que pone las barras automáticamente!
         )
 
         // Con este combobox seleccionamos la organización registrada en Room.
@@ -467,7 +489,6 @@ fun OportunidadesScreen(
                             onClick = { menuResponsableAbierto = false }
                         )
                     } else {
-                        // Ordenamos explícitamente para que aparezcan 1, 2 y 3 en la lista
                         val ejecutivosOrdenados = uiState.ejecutivos.sortedBy { ejecutivo ->
                             when (ejecutivo.correo) {
                                 "carlos.comercial@agencia.cl" -> 1
@@ -524,8 +545,6 @@ fun OportunidadesScreen(
         )
 
         // Con este bloque animado mostramos mensajes informativos de éxito o error.
-        // Usamos expandVertically/shrinkVertically para que el mensaje entre y salga
-        // de forma fluida, empujando el contenido inferior en lugar de aparecer de golpe.
         AnimatedVisibility(
             visible = uiState.mensaje != null,
             enter = fadeIn() + expandVertically(),
@@ -551,7 +570,6 @@ fun OportunidadesScreen(
         Spacer(modifier = Modifier.height(8.dp))
 
         // Con este botón guardamos la nueva oportunidad o actualizamos los cambios.
-        // Aplicamos una microinteracción de escala con animateFloatAsState al pulsar.
         val interactionSourceGuardar = remember { MutableInteractionSource() }
         val presionadoGuardar by interactionSourceGuardar.collectIsPressedAsState()
         val escalaGuardar by animateFloatAsState(

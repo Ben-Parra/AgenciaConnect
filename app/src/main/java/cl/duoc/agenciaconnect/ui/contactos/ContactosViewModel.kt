@@ -67,8 +67,28 @@ class ContactosViewModel(application: Application) : AndroidViewModel(applicatio
         _uiState.update { it.copy(correo = valor, errorCorreo = false) }
     }
 
+    // Con esta función validamos y formateamos el teléfono chileno automáticamente (+56 obligatorio)
     fun actualizarTelefono(valor: String) {
-        _uiState.update { it.copy(telefono = valor) }
+        // Aseguramos que comience con "+56"
+        val textoLimpio = if (!valor.startsWith("+56")) {
+            "+56" + valor.replace("+", "").replace("56", "")
+        } else {
+            valor
+        }
+
+        // Permitimos el "+56" al inicio y solo dígitos numéricos en el resto
+        val soloDigitosDespues = textoLimpio.substring(3).filter { it.isDigit() }
+        val telefonoFinal = "+56" + soloDigitosDespues
+
+        // Como el teléfono es opcional, es válido si está vacío ("+56") o si completa los 9 dígitos de número (+56 + 9 dígitos = 12 caracteres)
+        val esValido = telefonoFinal.length == 3 || telefonoFinal.length == 12
+
+        _uiState.update {
+            it.copy(
+                telefono = telefonoFinal,
+                errorTelefono = !esValido
+            )
+        }
     }
 
     fun actualizarMedioPreferido(valor: String) {
@@ -84,13 +104,20 @@ class ContactosViewModel(application: Application) : AndroidViewModel(applicatio
         _uiState.update {
             ContactoUiState(
                 contactos = it.contactos,
-                organizaciones = it.organizaciones
+                organizaciones = it.organizaciones,
+                telefono = "+56" // Precargamos "+56" por defecto al crear uno nuevo
             )
         }
     }
 
     // Con esta función cargamos los datos de un contacto para editarlo.
     fun editarContacto(contacto: Contacto) {
+        val telefonoCargado = if (contacto.telefono.isBlank() || !contacto.telefono.startsWith("+56")) {
+            "+56" + contacto.telefono.replace("+", "")
+        } else {
+            contacto.telefono
+        }
+
         _uiState.update {
             it.copy(
                 nombreCompleto = contacto.nombreCompleto,
@@ -98,12 +125,13 @@ class ContactosViewModel(application: Application) : AndroidViewModel(applicatio
                 cargo = contacto.cargo,
                 area = contacto.area,
                 correo = contacto.correo,
-                telefono = contacto.telefono,
+                telefono = telefonoCargado,
                 medioPreferido = contacto.medioPreferido,
                 observaciones = contacto.observaciones,
                 idEnEdicion = contacto.id,
                 contactoPorEliminar = null,
-                mensaje = null
+                mensaje = null,
+                errorTelefono = false
             )
         }
     }
@@ -124,6 +152,9 @@ class ContactosViewModel(application: Application) : AndroidViewModel(applicatio
         val correoValido = validarCorreoContacto(estado.correo)
         val medioValido = validarMedioPreferidoContacto(estado.medioPreferido)
 
+        // El teléfono es válido si está vacío (solo "+56") o si tiene el formato completo de 12 caracteres
+        val telefonoValido = estado.telefono == "+56" || estado.telefono.length == 12
+
         _uiState.update {
             it.copy(
                 errorNombreCompleto = !nombreValido,
@@ -132,14 +163,15 @@ class ContactosViewModel(application: Application) : AndroidViewModel(applicatio
                 errorArea = !areaValida,
                 errorCorreo = !correoValido,
                 errorMedioPreferido = !medioValido,
+                errorTelefono = !telefonoValido,
                 mensaje = null
             )
         }
 
         if (!nombreValido || !organizacionValida || !cargoValido ||
-            !areaValida || !correoValido || !medioValido
+            !areaValida || !correoValido || !medioValido || !telefonoValido
         ) {
-            _uiState.update { it.copy(mensaje = "Revisa los campos obligatorios.") }
+            _uiState.update { it.copy(mensaje = "Revisa los campos obligatorios y el formato del teléfono.") }
             return
         }
 
@@ -161,6 +193,9 @@ class ContactosViewModel(application: Application) : AndroidViewModel(applicatio
             _uiState.update { it.copy(guardando = true, mensaje = null) }
 
             try {
+                // Si el usuario dejó solo el "+56", guardamos el campo vacío para mantenerlo opcional limpio en la BD
+                val telefonoAGuardar = if (estado.telefono == "+56") "" else estado.telefono.trim()
+
                 val contacto = Contacto(
                     id = estado.idEnEdicion ?: 0L,
                     nombreCompleto = estado.nombreCompleto.trim(),
@@ -168,7 +203,7 @@ class ContactosViewModel(application: Application) : AndroidViewModel(applicatio
                     cargo = estado.cargo.trim(),
                     area = estado.area.trim(),
                     correo = estado.correo.trim(),
-                    telefono = estado.telefono.trim(),
+                    telefono = telefonoAGuardar,
                     medioPreferido = estado.medioPreferido.trim(),
                     observaciones = estado.observaciones.trim()
                 )
@@ -228,8 +263,7 @@ class ContactosViewModel(application: Application) : AndroidViewModel(applicatio
         _uiState.update { it.copy(contactoPorEliminar = null) }
     }
 
-    // Con esta función limpiamos los mensajes y errores al salir del formulario,
-// conservando los datos ingresados y el resto del estado.
+    // Con esta función limpiamos los mensajes y errores al salir del formulario.
     fun limpiarMensajes() {
         _uiState.update {
             it.copy(
@@ -239,15 +273,13 @@ class ContactosViewModel(application: Application) : AndroidViewModel(applicatio
                 errorCargo = false,
                 errorArea = false,
                 errorCorreo = false,
-                errorMedioPreferido = false
+                errorMedioPreferido = false,
+                errorTelefono = false
             )
         }
     }
 
-
-
-    // Con esta función limpiamos los campos, los errores y el identificador
-    // del contacto que estábamos editando, sin eliminar registros guardados.
+    // Con esta función limpiamos los campos y restablecemos el teléfono con "+56".
     private fun limpiarFormulario() {
         _uiState.update {
             it.copy(
@@ -256,7 +288,7 @@ class ContactosViewModel(application: Application) : AndroidViewModel(applicatio
                 cargo = "",
                 area = "",
                 correo = "",
-                telefono = "",
+                telefono = "+56",
                 medioPreferido = "",
                 observaciones = "",
                 errorNombreCompleto = false,
@@ -265,13 +297,13 @@ class ContactosViewModel(application: Application) : AndroidViewModel(applicatio
                 errorArea = false,
                 errorCorreo = false,
                 errorMedioPreferido = false,
+                errorTelefono = false,
                 idEnEdicion = null
             )
         }
     }
 
-    // Con esta función reiniciamos el formulario al abandonarlo,
-    // limpiando también cualquier mensaje que siga visible.
+    // Con esta función reiniciamos el formulario al abandonarlo.
     fun reiniciarFormularioAlSalir() {
         limpiarFormulario()
 
@@ -279,6 +311,4 @@ class ContactosViewModel(application: Application) : AndroidViewModel(applicatio
             it.copy(mensaje = null)
         }
     }
-
-
 }

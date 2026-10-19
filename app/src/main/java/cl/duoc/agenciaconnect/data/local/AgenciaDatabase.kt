@@ -26,7 +26,7 @@ import kotlinx.coroutines.launch
         Usuario::class,
         Seguimiento::class
     ],
-    version = 6,
+    version = 7, // <--- Actualizado a versión 7 para soportar fechaDeteccion
     exportSchema = false
 )
 abstract class AgenciaDatabase : RoomDatabase() {
@@ -114,7 +114,7 @@ abstract class AgenciaDatabase : RoomDatabase() {
             }
         }
 
-        // Con esta migración incorporamos usuarios con roles y la bitácora de seguimientos en la versión 6.
+        // Con esta migración incorporamos usuarios y seguimientos en la versión 6.
         private val MIGRACION_5_6 = object : Migration(5, 6) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL(
@@ -150,6 +150,15 @@ abstract class AgenciaDatabase : RoomDatabase() {
             }
         }
 
+        // Con esta migración incorporamos fechaDeteccion en oportunidades en la versión 7.
+        private val MIGRACION_6_7 = object : Migration(6, 7) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    "ALTER TABLE oportunidades ADD COLUMN fechaDeteccion TEXT NOT NULL DEFAULT ''"
+                )
+            }
+        }
+
         @Volatile
         private var INSTANCIA: AgenciaDatabase? = null
 
@@ -166,7 +175,8 @@ abstract class AgenciaDatabase : RoomDatabase() {
                         MIGRACION_2_3,
                         MIGRACION_3_4,
                         MIGRACION_4_5,
-                        MIGRACION_5_6
+                        MIGRACION_5_6,
+                        MIGRACION_6_7
                     )
                     .addCallback(object : Callback() {
                         override fun onOpen(db: SupportSQLiteDatabase) {
@@ -208,7 +218,6 @@ abstract class AgenciaDatabase : RoomDatabase() {
                                     }
 
                                     // 2. Precarga de Organizaciones Base
-                                    // Verificamos si la tabla organizaciones está vacía para insertar las 5 de prueba.
                                     val cursorOrgs = db.query("SELECT COUNT(*) FROM organizaciones")
                                     var totalOrgs = 0
                                     if (cursorOrgs.moveToFirst()) {
@@ -217,14 +226,13 @@ abstract class AgenciaDatabase : RoomDatabase() {
                                     cursorOrgs.close()
 
                                     if (totalOrgs == 0) {
-                                        // Insertamos las 5 organizaciones y guardamos sus IDs relacionales
                                         val idOrg1 = db.compileStatement("INSERT INTO organizaciones (nombre, tipo, rubro, comuna, region, sitioWeb, publicoAsociado, observaciones) VALUES ('Clínica Dental Sonrisa Austral', 'Empresa', 'Salud / Dental', 'Providencia', 'Metropolitana', 'www.sonrisasaustral.cl', 'Colaboradores y familias', 'Convenio corporativo dental prioritario')").executeInsert()
                                         val idOrg2 = db.compileStatement("INSERT INTO organizaciones (nombre, tipo, rubro, comuna, region, sitioWeb, publicoAsociado, observaciones) VALUES ('Automotora Central de Servicios', 'Empresa', 'Automotriz', 'Ñuñoa', 'Metropolitana', 'www.automotoracentral.cl', 'Trabajadores y conductores', 'Servicios de mantención y flota')").executeInsert()
                                         val idOrg3 = db.compileStatement("INSERT INTO organizaciones (nombre, tipo, rubro, comuna, region, sitioWeb, publicoAsociado, observaciones) VALUES ('Centro Veterinario Patitas Felices', 'Empresa', 'Veterinario', 'La Florida', 'Metropolitana', 'www.patitasfelices.cl', 'Amantes de mascotas y dueños', 'Beneficios veterinarios corporativos')").executeInsert()
                                         val idOrg4 = db.compileStatement("INSERT INTO organizaciones (nombre, tipo, rubro, comuna, region, sitioWeb, publicoAsociado, observaciones) VALUES ('Municipalidad de Puente Alto', 'Municipalidad', 'Institución Pública', 'Puente Alto', 'Metropolitana', 'www.puentealto.cl', 'Vecinos y funcionarios municipales', 'Ferias vecinales de alta afluencia')").executeInsert()
                                         val idOrg5 = db.compileStatement("INSERT INTO organizaciones (nombre, tipo, rubro, comuna, region, sitioWeb, publicoAsociado, observaciones) VALUES ('Corporación de Bienestar Bancario', 'Asociación', 'Financiero / Bienestar', 'Santiago', 'Metropolitana', 'www.bienestarbancario.cl', 'Asociados y cargas familiares', 'Jornadas de beneficios institucionales')").executeInsert()
 
-                                        // 3. Precarga de Contactos vinculados a las organizaciones anteriores
+                                        // 3. Precarga de Contactos vinculados
                                         db.execSQL("INSERT INTO contactos (nombreCompleto, organizacionId, cargo, area, correo, telefono, medioPreferido, observaciones) VALUES ('Camara Pérez', $idOrg1, 'Jefa de Bienestar', 'Recursos Humanos', 'cperez@sonrisas.cl', '+56911223344', 'Correo', 'Muy interesada en activaciones dentales')")
                                         db.execSQL("INSERT INTO contactos (nombreCompleto, organizacionId, cargo, area, correo, telefono, medioPreferido, observaciones) VALUES ('Esteban Gatica', $idOrg2, 'Encargado de Beneficios', 'Administración', 'egatica@central.cl', '+56922334455', 'Teléfono', 'Coordina espacios en edificio corporativo')")
                                         db.execSQL("INSERT INTO contactos (nombreCompleto, organizacionId, cargo, area, correo, telefono, medioPreferido, observaciones) VALUES ('Daniela Soto', $idOrg3, 'Coordinadora de Eventos', 'Marketing', 'dsoto@patitas.cl', '+56933445566', 'Correo', 'Apoya ferias temáticas de mascotas')")
@@ -238,12 +246,12 @@ abstract class AgenciaDatabase : RoomDatabase() {
                                         db.execSQL("INSERT INTO eventos (nombre, descripcion, fecha, ubicacion, organizacion, imagenUri) VALUES ('Feria Vecinal y Servicios', 'Activación municipal abierta a la comunidad', '05112026', 'Plaza de Armas Puente Alto', 'Municipalidad de Puente Alto', 'android.resource://cl.duoc.agenciaconnect/drawable/imagen2')")
                                         db.execSQL("INSERT INTO eventos (nombre, descripcion, fecha, ubicacion, organizacion, imagenUri) VALUES ('Encuentro Anual de Bienestar', 'Jornada corporativa para asociados y familias', '20112026', 'Hotel Sheraton Santiago', 'Corporación de Bienestar Bancario', 'android.resource://cl.duoc.agenciaconnect/drawable/imagen1')")
 
-                                        // 5. Precarga de Oportunidades comerciales
-                                        db.execSQL("INSERT INTO oportunidades (nombre, tipo, organizacionId, eventoId, prioridad, potencial, estado, responsable, observaciones) VALUES ('Activación Módulo Dental en Feria', 'Feria empresarial', $idOrg1, 1, 'Alta', 'Alto', 'Propuesta enviada', 'Carlos Muñoz', 'Se envió presentación formal con tarifas preferenciales')")
-                                        db.execSQL("INSERT INTO oportunidades (nombre, tipo, organizacionId, eventoId, prioridad, potencial, estado, responsable, observaciones) VALUES ('Convenio Mantención Flota Colaboradores', 'Evento corporativo', $idOrg2, 2, 'Media', 'Alto', 'Contacto realizado', 'Marcela Rojas', 'Reunión inicial agendada para la próxima semana')")
-                                        db.execSQL("INSERT INTO oportunidades (nombre, tipo, organizacionId, eventoId, prioridad, potencial, estado, responsable, observaciones) VALUES ('Jornada de Vacunación y Cuidados', 'Jornada de beneficios', $idOrg3, 3, 'Alta', 'Medio', 'Contacto pendiente', 'Felipe Soto', 'Esperando validación de fechas por parte del centro')")
-                                        db.execSQL("INSERT INTO oportunidades (nombre, tipo, organizacionId, eventoId, prioridad, potencial, estado, responsable, observaciones) VALUES ('Stand de Beneficios en Feria Municipal', 'Actividad municipal', $idOrg4, 4, 'Alta', 'Alto', 'Evento identificado', 'Carlos Muñoz', 'Detectado aviso oficial en sitio municipal')")
-                                        db.execSQL("INSERT INTO oportunidades (nombre, tipo, organizacionId, eventoId, prioridad, potencial, estado, responsable, observaciones) VALUES ('Alianza de Convenios Exclusivos Socios', 'Feria institucional', $idOrg5, 5, 'Media', 'Alto', 'En espera de respuesta', 'Marcela Rojas', 'Propuesta enviada a comité de bienestar')")
+                                        // 5. Precarga de Oportunidades comerciales (con fechaDeteccion incluida)
+                                        db.execSQL("INSERT INTO oportunidades (nombre, tipo, organizacionId, eventoId, prioridad, potencial, estado, responsable, observaciones, fechaDeteccion) VALUES ('Activación Módulo Dental en Feria', 'Feria empresarial', $idOrg1, 1, 'Alta', 'Alto', 'Propuesta enviada', 'Carlos Muñoz', 'Se envió presentación formal con tarifas preferenciales', '10082026')")
+                                        db.execSQL("INSERT INTO oportunidades (nombre, tipo, organizacionId, eventoId, prioridad, potencial, estado, responsable, observaciones, fechaDeteccion) VALUES ('Convenio Mantención Flota Colaboradores', 'Evento corporativo', $idOrg2, 2, 'Media', 'Alto', 'Contacto realizado', 'Marcela Rojas', 'Reunión inicial agendada para la próxima semana', '15082026')")
+                                        db.execSQL("INSERT INTO oportunidades (nombre, tipo, organizacionId, eventoId, prioridad, potencial, estado, responsable, observaciones, fechaDeteccion) VALUES ('Jornada de Vacunación y Cuidados', 'Jornada de beneficios', $idOrg3, 3, 'Alta', 'Medio', 'Contacto pendiente', 'Felipe Soto', 'Esperando validación de fechas por parte del centro', '01092026')")
+                                        db.execSQL("INSERT INTO oportunidades (nombre, tipo, organizacionId, eventoId, prioridad, potencial, estado, responsable, observaciones, fechaDeteccion) VALUES ('Stand de Beneficios en Feria Municipal', 'Actividad municipal', $idOrg4, 4, 'Alta', 'Alto', 'Evento identificado', 'Carlos Muñoz', 'Detectado aviso oficial en sitio municipal', '10092026')")
+                                        db.execSQL("INSERT INTO oportunidades (nombre, tipo, organizacionId, eventoId, prioridad, potencial, estado, responsable, observaciones, fechaDeteccion) VALUES ('Alianza de Convenios Exclusivos Socios', 'Feria institucional', $idOrg5, 5, 'Media', 'Alto', 'En espera de respuesta', 'Marcela Rojas', 'Propuesta enviada a comité de bienestar', '01102026')")
                                     }
                                 }
                             }

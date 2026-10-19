@@ -34,5 +34,7 @@ data class Oportunidad(
     val responsable: String,
 
     // Con este campo registramos notas o detalles adicionales de la gestión.
-    val observaciones: String
+    val observaciones: String,
+
+    val fechaDeteccion: String = ""
 )

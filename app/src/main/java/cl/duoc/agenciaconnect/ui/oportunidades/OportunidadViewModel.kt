@@ -1,6 +1,9 @@
 package cl.duoc.agenciaconnect.ui.oportunidades
 
 import android.app.Application
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import cl.duoc.agenciaconnect.data.local.AgenciaDatabase
@@ -9,6 +12,7 @@ import cl.duoc.agenciaconnect.data.repository.EventoRepository
 import cl.duoc.agenciaconnect.data.repository.OportunidadRepository
 import cl.duoc.agenciaconnect.data.repository.OrganizacionRepository
 import cl.duoc.agenciaconnect.util.validarEstadoOportunidad
+import cl.duoc.agenciaconnect.util.validarFechaDeteccion
 import cl.duoc.agenciaconnect.util.validarNombreOportunidad
 import cl.duoc.agenciaconnect.util.validarOrganizacionOportunidad
 import cl.duoc.agenciaconnect.util.validarPotencialOportunidad
@@ -35,6 +39,12 @@ class OportunidadViewModel(application: Application) : AndroidViewModel(applicat
     // Con este flujo mantenemos el estado privado y observable de la interfaz.
     private val _uiState = MutableStateFlow(OportunidadUiState())
     val uiState: StateFlow<OportunidadUiState> = _uiState.asStateFlow()
+
+    // ── VARIABLES DE FILTROS AVANZADOS (Criterios 21, 22, 23, 24) ──
+    var filtroTexto by mutableStateOf("")
+    var filtroTipo by mutableStateOf("")
+    var filtroOrganizacion by mutableStateOf("")
+    var filtroUbicacion by mutableStateOf("")
 
     init {
         // Con esta corrutina observamos las oportunidades registradas en la base de datos.
@@ -115,6 +125,7 @@ class OportunidadViewModel(application: Application) : AndroidViewModel(applicat
         val potencialValido = validarPotencialOportunidad(estado.potencial)
         val estadoValido = validarEstadoOportunidad(estado.estado)
         val responsableValido = validarResponsableOportunidad(estado.responsable)
+        val fechaValida = validarFechaDeteccion(estado.fechaDeteccion)
 
         _uiState.update {
             it.copy(
@@ -125,14 +136,15 @@ class OportunidadViewModel(application: Application) : AndroidViewModel(applicat
                 errorPotencial = !potencialValido,
                 errorEstado = !estadoValido,
                 errorResponsable = !responsableValido,
-                mensaje = null
+                mensaje = null,
+                errorFechaDeteccion = !fechaValida,
             )
         }
 
         if (!nombreValido || !tipoValido || !organizacionValida ||
-            !prioridadValida || !potencialValido || !estadoValido || !responsableValido
+            !prioridadValida || !potencialValido || !estadoValido || !responsableValido || !fechaValida
         ) {
-            _uiState.update { it.copy(mensaje = "Revisa los campos obligatorios marcados.") }
+            _uiState.update { it.copy(mensaje = "Revisa los campos obligatorios y la fecha de detección.") }
             return
         }
 
@@ -162,7 +174,8 @@ class OportunidadViewModel(application: Application) : AndroidViewModel(applicat
                     potencial = estado.potencial.trim(),
                     estado = estado.estado.trim(),
                     responsable = estado.responsable.trim(),
-                    observaciones = estado.observaciones.trim()
+                    observaciones = estado.observaciones.trim(),
+                    fechaDeteccion = estado.fechaDeteccion.trim()
                 )
 
                 if (estado.idEnEdicion == null) {
@@ -208,7 +221,9 @@ class OportunidadViewModel(application: Application) : AndroidViewModel(applicat
                 errorEstado = false,
                 errorResponsable = false,
                 oportunidadPorEliminar = null,
-                mensaje = null
+                mensaje = null,
+                fechaDeteccion = oportunidad.fechaDeteccion,
+                errorFechaDeteccion = false,
             )
         }
     }
@@ -272,7 +287,9 @@ class OportunidadViewModel(application: Application) : AndroidViewModel(applicat
                 errorPotencial = false,
                 errorEstado = false,
                 errorResponsable = false,
-                idEnEdicion = null
+                idEnEdicion = null,
+                fechaDeteccion = "",
+                errorFechaDeteccion = false,
             )
         }
     }
@@ -298,8 +315,19 @@ class OportunidadViewModel(application: Application) : AndroidViewModel(applicat
         cancelarEliminacion()
     }
 
-    // Con esta función confirmamos la eliminación y la ejecutamos en Room de forma asíncrona.
-    fun confirmarEliminar() {
-        confirmarEliminacion()
+    // Con esta función conservamos solo los dígitos de la fecha de detección
+    // y limitamos su longitud a ocho caracteres.
+    fun cambiarFechaDeteccion(nuevaFecha: String) {
+        val fechaLimpia = nuevaFecha
+            .filter { it.isDigit() }
+            .take(8)
+
+        _uiState.update {
+            it.copy(
+                fechaDeteccion = fechaLimpia,
+                errorFechaDeteccion = false
+            )
+        }
     }
+
 }

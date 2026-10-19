@@ -7,6 +7,7 @@ import cl.duoc.agenciaconnect.data.model.Organizacion
 // Con esta clase centralizamos los datos del formulario, errores, listas y mensajes de oportunidades.
 data class OportunidadUiState(
 
+
     // Con estos campos almacenamos los datos ingresados o seleccionados en el formulario.
     val nombre: String = "",
     val tipo: String = "",
@@ -17,6 +18,10 @@ data class OportunidadUiState(
     val estado: String = "Evento identificado",
     val responsable: String = "",
     val observaciones: String = "",
+
+    // ── NUEVOS CAMPOS DE FECHA DE DETECCIÓN ──
+    val fechaDeteccion: String = "",
+    val errorFechaDeteccion: Boolean = false,
 
     // Con estos indicadores controlamos los mensajes de error visuales por cada campo.
     val errorNombre: Boolean = false,
@@ -39,7 +44,11 @@ data class OportunidadUiState(
 
     // Con estos indicadores informamos el estado de las operaciones y el resultado visual.
     val guardando: Boolean = false,
-    val mensaje: String? = null
+    val mensaje: String? = null,
+
+
+
+
 
 
 )

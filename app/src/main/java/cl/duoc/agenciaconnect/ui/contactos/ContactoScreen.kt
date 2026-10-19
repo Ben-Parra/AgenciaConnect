@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
@@ -26,6 +27,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -210,13 +212,29 @@ fun ContactoScreen(
             singleLine = true
         )
 
-        // Con este campo registramos un teléfono opcional.
+        // ── Campo de Teléfono con prefijo +56 inborrable estructuralmente ──
         OutlinedTextField(
-            value = uiState.telefono,
-            onValueChange = viewModel::actualizarTelefono,
-            label = { Text("Teléfono (opcional)") },
+            value = uiState.telefono.removePrefix("+56"), // El usuario solo ve y edita los dígitos posteriores
+            onValueChange = { nuevoValor ->
+                // Filtramos para que sólo acepte números y máximo 9 dígitos
+                val soloDigitos = nuevoValor.filter { it.isDigit() }.take(9)
+                // Guardamos en el ViewModel uniendo siempre el prefijo fijo
+                viewModel.actualizarTelefono("+56$soloDigitos")
+            },
+            label = { Text("Teléfono (Opcional)") },
+            placeholder = { Text("912345678") },
+            prefix = { Text("+56 ", fontWeight = FontWeight.Bold) }, // Prefijo nativo de Material 3 inborrable
+            isError = uiState.errorTelefono,
+            supportingText = {
+                if (uiState.errorTelefono) {
+                    Text("Debe contener 9 dígitos después del +56")
+                }
+            },
             modifier = Modifier.fillMaxWidth(),
-            singleLine = true
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Phone
+            )
         )
 
         // Con este campo registramos el medio de comunicación preferido.

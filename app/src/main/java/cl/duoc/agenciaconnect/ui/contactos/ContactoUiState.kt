@@ -12,7 +12,7 @@ data class ContactoUiState(
     val cargo: String = "",
     val area: String = "",
     val correo: String = "",
-    val telefono: String = "",
+    val telefono: String = "+56",
     val medioPreferido: String = "",
     val observaciones: String = "",
 
@@ -22,6 +22,7 @@ data class ContactoUiState(
     val errorCargo: Boolean = false,
     val errorArea: Boolean = false,
     val errorCorreo: Boolean = false,
+    val errorTelefono: Boolean = false,
     val errorMedioPreferido: Boolean = false,
 
     // Con estas listas mostramos los contactos y organizaciones registrados.
