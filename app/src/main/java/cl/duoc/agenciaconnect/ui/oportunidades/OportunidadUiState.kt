@@ -1,21 +1,25 @@
 package cl.duoc.agenciaconnect.ui.oportunidades
 
+import cl.duoc.agenciaconnect.data.model.EstadoOportunidad
 import cl.duoc.agenciaconnect.data.model.Evento
 import cl.duoc.agenciaconnect.data.model.Oportunidad
 import cl.duoc.agenciaconnect.data.model.Organizacion
+import cl.duoc.agenciaconnect.data.model.PotencialOportunidad
+import cl.duoc.agenciaconnect.data.model.PrioridadOportunidad
+import cl.duoc.agenciaconnect.data.model.TipoOportunidad
+import cl.duoc.agenciaconnect.data.model.Usuario
 
 // Con esta clase centralizamos los datos del formulario, errores, listas y mensajes de oportunidades.
 data class OportunidadUiState(
 
-
     // Con estos campos almacenamos los datos ingresados o seleccionados en el formulario.
     val nombre: String = "",
-    val tipo: String = "",
+    val tipo: TipoOportunidad? = null,
     val organizacionId: Long? = null,
     val eventoId: Long = 0L,
-    val prioridad: String = "",
-    val potencial: String = "",
-    val estado: String = "Evento identificado",
+    val prioridad: PrioridadOportunidad? = null,
+    val potencial: PotencialOportunidad? = null,
+    val estado: EstadoOportunidad = EstadoOportunidad.EVENTO_IDENTIFICADO,
     val responsable: String = "",
     val observaciones: String = "",
 
@@ -36,7 +40,7 @@ data class OportunidadUiState(
     val oportunidades: List<Oportunidad> = emptyList(),
     val organizaciones: List<Organizacion> = emptyList(),
     val eventos: List<Evento> = emptyList(),
-    val ejecutivos: List<cl.duoc.agenciaconnect.data.model.Usuario> = emptyList(), // <- AGREGAR ESTA LÍNEA
+    val ejecutivos: List<Usuario> = emptyList(),
 
     // Con estos campos controlamos el modo de edición y la solicitud de eliminación.
     val idEnEdicion: Long? = null,
@@ -44,11 +48,5 @@ data class OportunidadUiState(
 
     // Con estos indicadores informamos el estado de las operaciones y el resultado visual.
     val guardando: Boolean = false,
-    val mensaje: String? = null,
-
-
-
-
-
-
+    val mensaje: String? = null
 )

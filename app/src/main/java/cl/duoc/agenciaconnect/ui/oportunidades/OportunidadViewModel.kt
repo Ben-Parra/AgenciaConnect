@@ -7,10 +7,15 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import cl.duoc.agenciaconnect.data.local.AgenciaDatabase
+import cl.duoc.agenciaconnect.data.model.EstadoOportunidad
 import cl.duoc.agenciaconnect.data.model.Oportunidad
+import cl.duoc.agenciaconnect.data.model.PotencialOportunidad
+import cl.duoc.agenciaconnect.data.model.PrioridadOportunidad
+import cl.duoc.agenciaconnect.data.model.TipoOportunidad
 import cl.duoc.agenciaconnect.data.repository.EventoRepository
 import cl.duoc.agenciaconnect.data.repository.OportunidadRepository
 import cl.duoc.agenciaconnect.data.repository.OrganizacionRepository
+import cl.duoc.agenciaconnect.data.repository.UsuarioRepository
 import cl.duoc.agenciaconnect.util.validarEstadoOportunidad
 import cl.duoc.agenciaconnect.util.validarFechaDeteccion
 import cl.duoc.agenciaconnect.util.validarNombreOportunidad
@@ -34,7 +39,7 @@ class OportunidadViewModel(application: Application) : AndroidViewModel(applicat
     private val organizacionRepository = OrganizacionRepository(database.organizacionDao())
     private val eventoRepository = EventoRepository(database.eventoDao())
 
-    private val usuarioRepository = cl.duoc.agenciaconnect.data.repository.UsuarioRepository(database.usuarioDao())
+    private val usuarioRepository = UsuarioRepository(database.usuarioDao())
 
     // Con este flujo mantenemos el estado privado y observable de la interfaz.
     private val _uiState = MutableStateFlow(OportunidadUiState())
@@ -45,6 +50,9 @@ class OportunidadViewModel(application: Application) : AndroidViewModel(applicat
     var filtroTipo by mutableStateOf("")
     var filtroOrganizacion by mutableStateOf("")
     var filtroUbicacion by mutableStateOf("")
+
+    // Con esta propiedad guardamos la oportunidad seleccionada para la pantalla de seguimiento.
+    var oportunidadSeleccionada by mutableStateOf<Oportunidad?>(null)
 
     init {
         // Con esta corrutina observamos las oportunidades registradas en la base de datos.
@@ -82,7 +90,7 @@ class OportunidadViewModel(application: Application) : AndroidViewModel(applicat
         _uiState.update { it.copy(nombre = valor, errorNombre = false) }
     }
 
-    fun cambiarTipo(valor: String) {
+    fun cambiarTipo(valor: TipoOportunidad?) {
         _uiState.update { it.copy(tipo = valor, errorTipo = false) }
     }
 
@@ -94,15 +102,15 @@ class OportunidadViewModel(application: Application) : AndroidViewModel(applicat
         _uiState.update { it.copy(eventoId = eventoId) }
     }
 
-    fun cambiarPrioridad(valor: String) {
+    fun cambiarPrioridad(valor: PrioridadOportunidad?) {
         _uiState.update { it.copy(prioridad = valor, errorPrioridad = false) }
     }
 
-    fun cambiarPotencial(valor: String) {
+    fun cambiarPotencial(valor: PotencialOportunidad?) {
         _uiState.update { it.copy(potencial = valor, errorPotencial = false) }
     }
 
-    fun cambiarEstado(valor: String) {
+    fun cambiarEstado(valor: EstadoOportunidad) {
         _uiState.update { it.copy(estado = valor, errorEstado = false) }
     }
 
@@ -167,12 +175,12 @@ class OportunidadViewModel(application: Application) : AndroidViewModel(applicat
                 val oportunidad = Oportunidad(
                     id = estado.idEnEdicion ?: 0L,
                     nombre = estado.nombre.trim(),
-                    tipo = estado.tipo.trim(),
+                    tipo = estado.tipo!!,
                     organizacionId = estado.organizacionId!!,
                     eventoId = estado.eventoId,
-                    prioridad = estado.prioridad.trim(),
-                    potencial = estado.potencial.trim(),
-                    estado = estado.estado.trim(),
+                    prioridad = estado.prioridad!!,
+                    potencial = estado.potencial!!,
+                    estado = estado.estado,
                     responsable = estado.responsable.trim(),
                     observaciones = estado.observaciones.trim(),
                     fechaDeteccion = estado.fechaDeteccion.trim()
@@ -268,16 +276,16 @@ class OportunidadViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     // Con esta función restablecemos los campos del formulario y el modo de edición.
-    private fun limpiarFormulario() {
+    fun limpiarFormulario() {
         _uiState.update {
             it.copy(
                 nombre = "",
-                tipo = "",
+                tipo = null,
                 organizacionId = null,
                 eventoId = 0L,
-                prioridad = "",
-                potencial = "",
-                estado = "Evento identificado",
+                prioridad = null,
+                potencial = null,
+                estado = EstadoOportunidad.EVENTO_IDENTIFICADO,
                 responsable = "",
                 observaciones = "",
                 errorNombre = false,

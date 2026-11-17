@@ -15,7 +15,7 @@ data class Oportunidad(
     val nombre: String,
 
     // Con este campo clasificamos el tipo de oportunidad (feria, actividad municipal, etc.).
-    val tipo: String,
+    val tipo: TipoOportunidad,
 
     // Con este identificador vinculamos la oportunidad con una organización registrada.
     val organizacionId: Long,
@@ -24,11 +24,11 @@ data class Oportunidad(
     val eventoId: Long = 0L,
 
     // Con estos campos definimos la urgencia y el impacto comercial esperado.
-    val prioridad: String,
-    val potencial: String,
+    val prioridad: PrioridadOportunidad,
+    val potencial: PotencialOportunidad,
 
     // Con este campo controlamos la etapa actual del seguimiento comercial.
-    val estado: String,
+    val estado: EstadoOportunidad,
 
     // Con este campo asignamos al colaborador del equipo comercial a cargo.
     val responsable: String,

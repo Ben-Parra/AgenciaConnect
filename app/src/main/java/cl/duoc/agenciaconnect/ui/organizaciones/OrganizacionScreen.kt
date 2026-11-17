@@ -1,6 +1,5 @@
 package cl.duoc.agenciaconnect.ui.organizaciones
 
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -32,13 +31,6 @@ fun OrganizacionesScreen(
 ) {
     // Con este estado observamos los datos del formulario y las organizaciones registradas.
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-
-    // Con este efecto reiniciamos el formulario cuando abandonamos la pantalla.
-    DisposableEffect(viewModel) {
-        onDispose {
-            viewModel.reiniciarFormularioAlSalir()
-        }
-    }
 
 
     Column(

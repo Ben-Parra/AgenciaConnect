@@ -6,6 +6,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import androidx.room.TypeConverters
 import cl.duoc.agenciaconnect.data.model.Contacto
 import cl.duoc.agenciaconnect.data.model.Evento
 import cl.duoc.agenciaconnect.data.model.Oportunidad
@@ -29,6 +30,7 @@ import kotlinx.coroutines.launch
     version = 7, // <--- Actualizado a versión 7 para soportar fechaDeteccion
     exportSchema = false
 )
+@TypeConverters(OportunidadConverters::class)
 abstract class AgenciaDatabase : RoomDatabase() {
 
     // Con estos métodos permitimos acceder a las operaciones de cada entidad.
@@ -247,11 +249,11 @@ abstract class AgenciaDatabase : RoomDatabase() {
                                         db.execSQL("INSERT INTO eventos (nombre, descripcion, fecha, ubicacion, organizacion, imagenUri) VALUES ('Encuentro Anual de Bienestar', 'Jornada corporativa para asociados y familias', '20112026', 'Hotel Sheraton Santiago', 'Corporación de Bienestar Bancario', 'android.resource://cl.duoc.agenciaconnect/drawable/imagen1')")
 
                                         // 5. Precarga de Oportunidades comerciales (con fechaDeteccion incluida)
-                                        db.execSQL("INSERT INTO oportunidades (nombre, tipo, organizacionId, eventoId, prioridad, potencial, estado, responsable, observaciones, fechaDeteccion) VALUES ('Activación Módulo Dental en Feria', 'Feria empresarial', $idOrg1, 1, 'Alta', 'Alto', 'Propuesta enviada', 'Carlos Muñoz', 'Se envió presentación formal con tarifas preferenciales', '10082026')")
-                                        db.execSQL("INSERT INTO oportunidades (nombre, tipo, organizacionId, eventoId, prioridad, potencial, estado, responsable, observaciones, fechaDeteccion) VALUES ('Convenio Mantención Flota Colaboradores', 'Evento corporativo', $idOrg2, 2, 'Media', 'Alto', 'Contacto realizado', 'Marcela Rojas', 'Reunión inicial agendada para la próxima semana', '15082026')")
-                                        db.execSQL("INSERT INTO oportunidades (nombre, tipo, organizacionId, eventoId, prioridad, potencial, estado, responsable, observaciones, fechaDeteccion) VALUES ('Jornada de Vacunación y Cuidados', 'Jornada de beneficios', $idOrg3, 3, 'Alta', 'Medio', 'Contacto pendiente', 'Felipe Soto', 'Esperando validación de fechas por parte del centro', '01092026')")
-                                        db.execSQL("INSERT INTO oportunidades (nombre, tipo, organizacionId, eventoId, prioridad, potencial, estado, responsable, observaciones, fechaDeteccion) VALUES ('Stand de Beneficios en Feria Municipal', 'Actividad municipal', $idOrg4, 4, 'Alta', 'Alto', 'Evento identificado', 'Carlos Muñoz', 'Detectado aviso oficial en sitio municipal', '10092026')")
-                                        db.execSQL("INSERT INTO oportunidades (nombre, tipo, organizacionId, eventoId, prioridad, potencial, estado, responsable, observaciones, fechaDeteccion) VALUES ('Alianza de Convenios Exclusivos Socios', 'Feria institucional', $idOrg5, 5, 'Media', 'Alto', 'En espera de respuesta', 'Marcela Rojas', 'Propuesta enviada a comité de bienestar', '01102026')")
+                                        db.execSQL("INSERT INTO oportunidades (nombre, tipo, organizacionId, eventoId, prioridad, potencial, estado, responsable, observaciones, fechaDeteccion) VALUES ('Activación Módulo Dental en Feria', 'Feria empresarial', $idOrg1, 1, 'Alta', 'Alto', 'Propuesta enviada', 'Carlos Muñoz (Ejecutivo)', 'Se envió presentación formal con tarifas preferenciales', '10082026')")
+                                        db.execSQL("INSERT INTO oportunidades (nombre, tipo, organizacionId, eventoId, prioridad, potencial, estado, responsable, observaciones, fechaDeteccion) VALUES ('Convenio Mantención Flota Colaboradores', 'Evento corporativo', $idOrg2, 2, 'Media', 'Alto', 'Contacto realizado', 'Marcela Rojas (Ejecutiva)', 'Reunión inicial agendada para la próxima semana', '15082026')")
+                                        db.execSQL("INSERT INTO oportunidades (nombre, tipo, organizacionId, eventoId, prioridad, potencial, estado, responsable, observaciones, fechaDeteccion) VALUES ('Jornada de Vacunación y Cuidados', 'Jornada de beneficios', $idOrg3, 3, 'Alta', 'Medio', 'Contacto pendiente', 'Felipe Soto (Ejecutivo)', 'Esperando validación de fechas por parte del centro', '01092026')")
+                                        db.execSQL("INSERT INTO oportunidades (nombre, tipo, organizacionId, eventoId, prioridad, potencial, estado, responsable, observaciones, fechaDeteccion) VALUES ('Stand de Beneficios en Feria Municipal', 'Actividad municipal', $idOrg4, 4, 'Alta', 'Alto', 'Evento identificado', 'Carlos Muñoz (Ejecutivo)', 'Detectado aviso oficial en sitio municipal', '10092026')")
+                                        db.execSQL("INSERT INTO oportunidades (nombre, tipo, organizacionId, eventoId, prioridad, potencial, estado, responsable, observaciones, fechaDeteccion) VALUES ('Alianza de Convenios Exclusivos Socios', 'Feria institucional', $idOrg5, 5, 'Media', 'Alto', 'En espera de respuesta', 'Marcela Rojas (Ejecutiva)', 'Propuesta enviada a comité de bienestar', '01102026')")
                                     }
                                 }
                             }

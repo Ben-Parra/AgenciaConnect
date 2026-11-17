@@ -1,7 +1,5 @@
 package cl.duoc.agenciaconnect.ui.oportunidades
 
-import cl.duoc.agenciaconnect.util.FechaVisualTransformation
-import cl.duoc.agenciaconnect.data.model.Usuario
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -32,7 +30,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -44,6 +42,12 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import cl.duoc.agenciaconnect.data.model.EstadoOportunidad
+import cl.duoc.agenciaconnect.data.model.PotencialOportunidad
+import cl.duoc.agenciaconnect.data.model.PrioridadOportunidad
+import cl.duoc.agenciaconnect.data.model.TipoOportunidad
+import cl.duoc.agenciaconnect.data.model.Usuario
+import cl.duoc.agenciaconnect.util.FechaVisualTransformation
 
 // Con esta pantalla mostramos el formulario completo para registrar y editar oportunidades comerciales.
 @Composable
@@ -60,16 +64,9 @@ fun OportunidadesScreen(
     val esSupervisor = usuarioActual?.rol == "SUPERVISOR"
 
     // Si el usuario es un ejecutivo y el responsable aún está en blanco, se asigna automáticamente en el estado.
-    androidx.compose.runtime.LaunchedEffect(usuarioActual) {
+    LaunchedEffect(usuarioActual) {
         if (!esSupervisor && uiState.responsable.isBlank() && usuarioActual != null) {
             viewModel.cambiarResponsable(usuarioActual.nombre)
-        }
-    }
-
-    // Con este efecto reiniciamos el formulario al salir de la pantalla para evitar datos residuales.
-    DisposableEffect(viewModel) {
-        onDispose {
-            viewModel.reiniciarFormularioAlSalir()
         }
     }
 
@@ -82,38 +79,21 @@ fun OportunidadesScreen(
     var menuEstadoAbierto by remember { mutableStateOf(false) }
     var menuResponsableAbierto by remember { mutableStateOf(false) }
 
-    // Con estas listas definimos las opciones estandarizadas según el caso de estudio.
-    val tiposOportunidad = listOf(
-        "Evento corporativo",
-        "Feria empresarial",
-        "Actividad municipal",
-        "Jornada de beneficios",
-        "Feria institucional",
-        "Activación comercial",
-        "Otra instancia"
-    )
-
-    val prioridades = listOf("Alta", "Media", "Baja")
-    val potenciales = listOf("Alto", "Medio", "Bajo")
+    // Con estas listas definimos las opciones estandarizadas mediante Enums.
+    val tiposOportunidad = TipoOportunidad.entries
+    val prioridades = PrioridadOportunidad.entries
+    val potenciales = PotencialOportunidad.entries
 
     // REGLA DE NEGOCIO: El ejecutivo no puede confirmar ni descartar definitivamente oportunidades.
     val estados = if (esSupervisor) {
-        listOf(
-            "Evento identificado",
-            "Contacto pendiente",
-            "Contacto realizado",
-            "Propuesta enviada",
-            "En espera de respuesta",
-            "Participación confirmada",
-            "Oportunidad descartada"
-        )
+        EstadoOportunidad.entries
     } else {
         listOf(
-            "Evento identificado",
-            "Contacto pendiente",
-            "Contacto realizado",
-            "Propuesta enviada",
-            "En espera de respuesta"
+            EstadoOportunidad.EVENTO_IDENTIFICADO,
+            EstadoOportunidad.CONTACTO_PENDIENTE,
+            EstadoOportunidad.CONTACTO_REALIZADO,
+            EstadoOportunidad.PROPUESTA_ENVIADA,
+            EstadoOportunidad.EN_ESPERA_RESPUESTA
         )
     }
 
@@ -170,7 +150,7 @@ fun OportunidadesScreen(
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Number
             ),
-            visualTransformation = FechaVisualTransformation() // <--- ¡Esta es la magia que pone las barras automáticamente!
+            visualTransformation = FechaVisualTransformation()
         )
 
         // Con este combobox seleccionamos la organización registrada en Room.
@@ -224,10 +204,10 @@ fun OportunidadesScreen(
             }
         }
 
-        // Con este combobox seleccionamos el tipo de oportunidad predefinido.
+        // Con este combobox seleccionamos el tipo de oportunidad predefinido (EnumClass).
         Box(modifier = Modifier.fillMaxWidth()) {
             OutlinedTextField(
-                value = uiState.tipo,
+                value = uiState.tipo?.etiqueta ?: "",
                 onValueChange = {},
                 readOnly = true,
                 label = { Text("Tipo de oportunidad") },
@@ -258,7 +238,7 @@ fun OportunidadesScreen(
             ) {
                 tiposOportunidad.forEach { tipo ->
                     DropdownMenuItem(
-                        text = { Text(tipo) },
+                        text = { Text(tipo.etiqueta) },
                         onClick = {
                             viewModel.cambiarTipo(tipo)
                             menuTiposAbierto = false
@@ -315,10 +295,10 @@ fun OportunidadesScreen(
             }
         }
 
-        // Con este combobox seleccionamos el nivel de prioridad.
+        // Con este combobox seleccionamos el nivel de prioridad (EnumClass).
         Box(modifier = Modifier.fillMaxWidth()) {
             OutlinedTextField(
-                value = uiState.prioridad,
+                value = uiState.prioridad?.etiqueta ?: "",
                 onValueChange = {},
                 readOnly = true,
                 label = { Text("Prioridad") },
@@ -349,7 +329,7 @@ fun OportunidadesScreen(
             ) {
                 prioridades.forEach { p ->
                     DropdownMenuItem(
-                        text = { Text(p) },
+                        text = { Text(p.etiqueta) },
                         onClick = {
                             viewModel.cambiarPrioridad(p)
                             menuPrioridadAbierto = false
@@ -359,10 +339,10 @@ fun OportunidadesScreen(
             }
         }
 
-        // Con este combobox definimos el potencial comercial.
+        // Con este combobox definimos el potencial comercial (EnumClass).
         Box(modifier = Modifier.fillMaxWidth()) {
             OutlinedTextField(
-                value = uiState.potencial,
+                value = uiState.potencial?.etiqueta ?: "",
                 onValueChange = {},
                 readOnly = true,
                 label = { Text("Potencial comercial estimado") },
@@ -393,7 +373,7 @@ fun OportunidadesScreen(
             ) {
                 potenciales.forEach { pot ->
                     DropdownMenuItem(
-                        text = { Text(pot) },
+                        text = { Text(pot.etiqueta) },
                         onClick = {
                             viewModel.cambiarPotencial(pot)
                             menuPotencialAbierto = false
@@ -403,10 +383,10 @@ fun OportunidadesScreen(
             }
         }
 
-        // Con este combobox asignamos la etapa o estado de la gestión.
+        // Con este combobox asignamos la etapa o estado de la gestión (EnumClass).
         Box(modifier = Modifier.fillMaxWidth()) {
             OutlinedTextField(
-                value = uiState.estado,
+                value = uiState.estado.etiqueta,
                 onValueChange = {},
                 readOnly = true,
                 label = { Text("Estado de la gestión") },
@@ -436,7 +416,7 @@ fun OportunidadesScreen(
             ) {
                 estados.forEach { est ->
                     DropdownMenuItem(
-                        text = { Text(est) },
+                        text = { Text(est.etiqueta) },
                         onClick = {
                             viewModel.cambiarEstado(est)
                             menuEstadoAbierto = false

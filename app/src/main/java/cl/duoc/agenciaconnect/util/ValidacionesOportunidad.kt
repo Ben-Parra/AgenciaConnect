@@ -4,6 +4,10 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
+import cl.duoc.agenciaconnect.data.model.EstadoOportunidad
+import cl.duoc.agenciaconnect.data.model.PotencialOportunidad
+import cl.duoc.agenciaconnect.data.model.PrioridadOportunidad
+import cl.duoc.agenciaconnect.data.model.TipoOportunidad
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -14,8 +18,8 @@ fun validarNombreOportunidad(nombre: String): Boolean {
 }
 
 // Con esta función comprobamos que se haya seleccionado un tipo de oportunidad válido.
-fun validarTipoOportunidad(tipo: String): Boolean {
-    return tipo.trim().isNotEmpty()
+fun validarTipoOportunidad(tipo: TipoOportunidad?): Boolean {
+    return tipo != null
 }
 
 // Con esta función comprobamos que se haya seleccionado una organización registrada.
@@ -24,18 +28,18 @@ fun validarOrganizacionOportunidad(organizacionId: Long?): Boolean {
 }
 
 // Con esta función comprobamos que se haya asignado una prioridad para la gestión.
-fun validarPrioridadOportunidad(prioridad: String): Boolean {
-    return prioridad.trim().isNotEmpty()
+fun validarPrioridadOportunidad(prioridad: PrioridadOportunidad?): Boolean {
+    return prioridad != null
 }
 
 // Con esta función comprobamos que se haya definido el potencial comercial de la oportunidad.
-fun validarPotencialOportunidad(potencial: String): Boolean {
-    return potencial.trim().isNotEmpty()
+fun validarPotencialOportunidad(potencial: PotencialOportunidad?): Boolean {
+    return potencial != null
 }
 
 // Con esta función comprobamos que se haya seleccionado el estado inicial o actual de la gestión.
-fun validarEstadoOportunidad(estado: String): Boolean {
-    return estado.trim().isNotEmpty()
+fun validarEstadoOportunidad(estado: EstadoOportunidad?): Boolean {
+    return estado != null
 }
 
 // Con esta función comprobamos que se indique el colaborador o responsable comercial a cargo.

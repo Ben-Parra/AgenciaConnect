@@ -36,7 +36,6 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -164,13 +163,6 @@ fun EventosScreen(
     viewModel: EventoViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-
-    // Con este efecto reiniciamos el formulario cuando abandonamos la pantalla.
-    DisposableEffect(viewModel) {
-        onDispose {
-            viewModel.reiniciarFormularioAlSalir()
-        }
-    }
 
     val context = LocalContext.current
 

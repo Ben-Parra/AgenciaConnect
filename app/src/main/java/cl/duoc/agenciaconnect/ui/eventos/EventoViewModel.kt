@@ -307,7 +307,7 @@ class EventoViewModel(application: Application) : AndroidViewModel(application) 
 
     // Con esta función limpiamos los campos, sus errores
     // y el identificador del evento que estábamos editando.
-    private fun limpiarFormulario() {
+    fun limpiarFormulario() {
         _uiState.update {
             it.copy(
                 nombre = "",

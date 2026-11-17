@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
-import androidx.activity.compose.BackHandler
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -59,15 +58,23 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import cl.duoc.agenciaconnect.ui.contactos.ContactoScreen
 import cl.duoc.agenciaconnect.ui.contactos.ContactosRegistradosScreen
+import cl.duoc.agenciaconnect.ui.contactos.ContactosViewModel
+import cl.duoc.agenciaconnect.ui.eventos.EventoViewModel
 import cl.duoc.agenciaconnect.ui.eventos.EventosRegistradosScreen
 import cl.duoc.agenciaconnect.ui.eventos.EventosScreen
 import cl.duoc.agenciaconnect.ui.login.LoginViewModel
+import cl.duoc.agenciaconnect.ui.oportunidades.OportunidadViewModel
 import cl.duoc.agenciaconnect.ui.oportunidades.OportunidadesRegistradasScreen
 import cl.duoc.agenciaconnect.ui.oportunidades.OportunidadesScreen
+import cl.duoc.agenciaconnect.ui.organizaciones.OrganizacionViewModel
 import cl.duoc.agenciaconnect.ui.organizaciones.OrganizacionesRegistradasScreen
 import cl.duoc.agenciaconnect.ui.organizaciones.OrganizacionesScreen
+import cl.duoc.agenciaconnect.ui.seguimientos.SeguimientoScreen
 import cl.duoc.agenciaconnect.ui.theme.AgenciaConnectTheme
 
 // Con esta actividad preparamos la aplicación y coordinamos
@@ -80,23 +87,17 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             AgenciaConnectTheme {
-                // Usamos una pila (stack) para recordar el historial de navegación
-                val historialPantallas = remember { mutableStateOf(listOf("inicio")) }
-                val pantallaActual = historialPantallas.value.last()
+                // Usamos NavController para gestionar la navegación y mantener el estado al rotar la pantalla
+                val navController = rememberNavController()
 
-                var usuarioActual by remember { mutableStateOf<cl.duoc.agenciaconnect.data.model.Usuario?>(null) }
-                var oportunidadSeleccionada by remember { mutableStateOf<cl.duoc.agenciaconnect.data.model.Oportunidad?>(null) }
+                val loginViewModel: LoginViewModel = viewModel()
+                val loginUiState by loginViewModel.uiState.collectAsStateWithLifecycle()
+                val usuarioActual = loginUiState.usuarioAutenticado
 
-                // ── MANEJO DEL BOTÓN ATRÁS FÍSICO ──────────────────────────────
-                BackHandler(enabled = historialPantallas.value.size > 1) {
-                    // Si hay más de una pantalla en el historial, al presionar atrás sacamos la última
-                    historialPantallas.value = historialPantallas.value.dropLast(1)
-                }
-
-                // Función auxiliar para navegar hacia adelante agregando a la pila
-                fun navegarA(nuevaPantalla: String) {
-                    historialPantallas.value = historialPantallas.value + nuevaPantalla
-                }
+                val eventoViewModel: EventoViewModel = viewModel()
+                val organizacionViewModel: OrganizacionViewModel = viewModel()
+                val contactosViewModel: ContactosViewModel = viewModel()
+                val oportunidadViewModel: OportunidadViewModel = viewModel()
 
                 Scaffold(
                     modifier = Modifier.fillMaxSize()
@@ -106,106 +107,161 @@ class MainActivity : ComponentActivity() {
                             .fillMaxSize()
                             .padding(innerPadding)
                     ) {
-                        AnimatedContent(
-                            targetState = pantallaActual,
-                            transitionSpec = {
-                                (slideInHorizontally(animationSpec = tween(300)) { ancho -> ancho } +
-                                        fadeIn(animationSpec = tween(300))) togetherWith
-                                        (slideOutHorizontally(animationSpec = tween(300)) { ancho -> -ancho } +
-                                                fadeOut(animationSpec = tween(300)))
-                            },
-                            label = "Transición entre pantallas"
-                        ) { pantalla ->
-                            when (pantalla) {
-                                "inicio" -> PantallaInicio(
+                        NavHost(
+                            navController = navController,
+                            startDestination = "inicio",
+                            enterTransition = { slideInHorizontally(animationSpec = tween(300)) { ancho -> ancho } + fadeIn(animationSpec = tween(300)) },
+                            exitTransition = { slideOutHorizontally(animationSpec = tween(300)) { ancho -> -ancho } + fadeOut(animationSpec = tween(300)) },
+                            popEnterTransition = { slideInHorizontally(animationSpec = tween(300)) { ancho -> -ancho } + fadeIn(animationSpec = tween(300)) },
+                            popExitTransition = { slideOutHorizontally(animationSpec = tween(300)) { ancho -> ancho } + fadeOut(animationSpec = tween(300)) }
+                        ) {
+                            composable("inicio") {
+                                PantallaInicio(
                                     onAcceso = {
-                                        navegarA("login")
+                                        navController.navigate("login")
                                     }
                                 )
+                            }
 
-                                "login" -> PantallaLoginAdmin(
-                                    onAccesoCorrecto = { usuario ->
-                                        usuarioActual = usuario
-                                        navegarA("admin")
+                            composable("login") {
+                                PantallaLoginAdmin(
+                                    onAccesoCorrecto = { _ ->
+                                        navController.navigate("admin") {
+                                            popUpTo("inicio") { inclusive = false }
+                                        }
                                     },
                                     onVolver = {
-                                        // Si vuelve al inicio, limpiamos el historial y dejamos solo "inicio"
-                                        historialPantallas.value = listOf("inicio")
-                                    }
+                                        navController.navigate("inicio") {
+                                            popUpTo("inicio") { inclusive = true }
+                                        }
+                                    },
+                                    loginViewModel = loginViewModel
                                 )
+                            }
 
-                                "admin" -> PantallaAdmin(
+                            composable("admin") {
+                                PantallaAdmin(
                                     usuario = usuarioActual,
-                                    onGestionarEventos = { navegarA("eventos") },
-                                    onGestionarOrganizaciones = { navegarA("organizaciones") },
-                                    onGestionarContactos = { navegarA("contactos") },
-                                    onGestionarOportunidades = { navegarA("oportunidades") },
+                                    onGestionarEventos = {
+                                        eventoViewModel.limpiarFormulario()
+                                        navController.navigate("eventos")
+                                    },
+                                    onGestionarOrganizaciones = {
+                                        organizacionViewModel.limpiarFormulario()
+                                        navController.navigate("organizaciones")
+                                    },
+                                    onGestionarContactos = {
+                                        contactosViewModel.reiniciarFormularioAlSalir()
+                                        navController.navigate("contactos")
+                                    },
+                                    onGestionarOportunidades = {
+                                        oportunidadViewModel.limpiarFormulario()
+                                        navController.navigate("oportunidades")
+                                    },
                                     onCerrarSesion = {
-                                        usuarioActual = null
-                                        historialPantallas.value = listOf("inicio")
+                                        loginViewModel.cerrarSesion()
+                                        navController.navigate("inicio") {
+                                            popUpTo("inicio") { inclusive = true }
+                                        }
                                     }
                                 )
+                            }
 
-                                "eventos" -> EventosScreen(
-                                    onVolver = { historialPantallas.value = historialPantallas.value.dropLast(1) },
-                                    onVerEventos = { navegarA("eventos_registrados") }
+                            composable("eventos") {
+                                EventosScreen(
+                                    onVolver = { navController.popBackStack("admin", inclusive = false) },
+                                    onVerEventos = { navController.navigate("eventos_registrados") },
+                                    viewModel = eventoViewModel
                                 )
+                            }
 
-                                "eventos_registrados" -> EventosRegistradosScreen(
-                                    onVolverFormulario = { historialPantallas.value = historialPantallas.value.dropLast(1) },
-                                    onVolver = { historialPantallas.value = historialPantallas.value.dropLast(2) }, // Salta directo al admin
-                                    onEditarEvento = { navegarA("eventos") }
+                            composable("eventos_registrados") {
+                                EventosRegistradosScreen(
+                                    onVolverFormulario = {
+                                        eventoViewModel.limpiarFormulario()
+                                        navController.navigate("eventos")
+                                    },
+                                    onVolver = { navController.popBackStack("admin", inclusive = false) },
+                                    onEditarEvento = { navController.navigate("eventos") },
+                                    viewModel = eventoViewModel
                                 )
+                            }
 
-                                "organizaciones" -> OrganizacionesScreen(
-                                    onVolver = { historialPantallas.value = historialPantallas.value.dropLast(1) },
-                                    onVerOrganizaciones = { navegarA("organizaciones_registradas") }
+                            composable("organizaciones") {
+                                OrganizacionesScreen(
+                                    onVolver = { navController.popBackStack("admin", inclusive = false) },
+                                    onVerOrganizaciones = { navController.navigate("organizaciones_registradas") },
+                                    viewModel = organizacionViewModel
                                 )
+                            }
 
-                                "organizaciones_registradas" -> OrganizacionesRegistradasScreen(
-                                    onVolverFormulario = { historialPantallas.value = historialPantallas.value.dropLast(1) },
-                                    onVolver = { historialPantallas.value = historialPantallas.value.dropLast(2) },
-                                    onEditarOrganizacion = { navegarA("organizaciones") }
+                            composable("organizaciones_registradas") {
+                                OrganizacionesRegistradasScreen(
+                                    onVolverFormulario = {
+                                        organizacionViewModel.limpiarFormulario()
+                                        navController.navigate("organizaciones")
+                                    },
+                                    onVolver = { navController.popBackStack("admin", inclusive = false) },
+                                    onEditarOrganizacion = { navController.navigate("organizaciones") },
+                                    viewModel = organizacionViewModel
                                 )
+                            }
 
-                                "contactos" -> ContactoScreen(
-                                    onVolver = { historialPantallas.value = historialPantallas.value.dropLast(1) },
-                                    onVerContactos = { navegarA("contactos_registrados") }
+                            composable("contactos") {
+                                ContactoScreen(
+                                    onVolver = { navController.popBackStack("admin", inclusive = false) },
+                                    onVerContactos = { navController.navigate("contactos_registrados") },
+                                    viewModel = contactosViewModel
                                 )
+                            }
 
-                                "contactos_registrados" -> ContactosRegistradosScreen(
-                                    onVolverAlFormulario = { historialPantallas.value = historialPantallas.value.dropLast(1) },
-                                    onVolver = { historialPantallas.value = historialPantallas.value.dropLast(2) },
-                                    onEditarContacto = { navegarA("contactos") }
+                            composable("contactos_registrados") {
+                                ContactosRegistradosScreen(
+                                    onVolverAlFormulario = {
+                                        contactosViewModel.reiniciarFormularioAlSalir()
+                                        navController.navigate("contactos")
+                                    },
+                                    onVolver = { navController.popBackStack("admin", inclusive = false) },
+                                    onEditarContacto = { navController.navigate("contactos") },
+                                    viewModel = contactosViewModel
                                 )
+                            }
 
-                                "oportunidades" -> OportunidadesScreen(
+                            composable("oportunidades") {
+                                OportunidadesScreen(
                                     usuarioActual = usuarioActual,
-                                    onVolver = { historialPantallas.value = historialPantallas.value.dropLast(1) },
-                                    onVerOportunidades = { navegarA("oportunidades_registradas") }
+                                    onVolver = { navController.popBackStack("admin", inclusive = false) },
+                                    onVerOportunidades = { navController.navigate("oportunidades_registradas") },
+                                    viewModel = oportunidadViewModel
                                 )
+                            }
 
-                                "oportunidades_registradas" -> OportunidadesRegistradasScreen(
+                            composable("oportunidades_registradas") {
+                                OportunidadesRegistradasScreen(
                                     usuarioActual = usuarioActual,
-                                    onVolverFormulario = { navegarA("oportunidades") },
-                                    onVolver = { historialPantallas.value = historialPantallas.value.dropLast(2) },
-                                    onEditarOportunidad = { navegarA("oportunidades") },
+                                    onVolverFormulario = {
+                                        oportunidadViewModel.limpiarFormulario()
+                                        navController.navigate("oportunidades")
+                                    },
+                                    onVolver = { navController.popBackStack("admin", inclusive = false) },
+                                    onEditarOportunidad = { navController.navigate("oportunidades") },
                                     onVerSeguimiento = { oportunidad ->
-                                        oportunidadSeleccionada = oportunidad
-                                        navegarA("seguimiento")
-                                    }
+                                        oportunidadViewModel.oportunidadSeleccionada = oportunidad
+                                        navController.navigate("seguimiento")
+                                    },
+                                    viewModel = oportunidadViewModel
                                 )
+                            }
 
-                                "seguimiento" -> {
-                                    oportunidadSeleccionada?.let { op ->
-                                        cl.duoc.agenciaconnect.ui.seguimientos.SeguimientoScreen(
-                                            oportunidad = op,
-                                            usuarioActual = usuarioActual,
-                                            onVolver = { historialPantallas.value = historialPantallas.value.dropLast(1) }
-                                        )
-                                    } ?: run {
-                                        historialPantallas.value = historialPantallas.value.dropLast(1)
-                                    }
+                            composable("seguimiento") {
+                                oportunidadViewModel.oportunidadSeleccionada?.let { op ->
+                                    SeguimientoScreen(
+                                        oportunidad = op,
+                                        usuarioActual = usuarioActual,
+                                        onVolver = { navController.popBackStack() }
+                                    )
+                                } ?: run {
+                                    navController.popBackStack()
                                 }
                             }
                         }

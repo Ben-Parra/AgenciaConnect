@@ -1,6 +1,5 @@
 package cl.duoc.agenciaconnect.ui.contactos
 
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -41,13 +40,6 @@ fun ContactoScreen(
 ) {
     // Con este estado observamos los datos del formulario y los registros disponibles.
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-
-    // Con este efecto reiniciamos el formulario cuando abandonamos la pantalla.
-    DisposableEffect(viewModel) {
-        onDispose {
-            viewModel.reiniciarFormularioAlSalir()
-        }
-    }
 
 
     // Con esta variable controlamos la apertura del selector de organizaciones.
