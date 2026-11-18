@@ -2,27 +2,94 @@ package cl.duoc.agenciaconnect.data.repository
 
 import cl.duoc.agenciaconnect.data.local.SeguimientoDao
 import cl.duoc.agenciaconnect.data.model.Seguimiento
+import cl.duoc.agenciaconnect.data.remote.AgenciaApi
+import cl.duoc.agenciaconnect.data.remote.RetrofitClient
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.withContext
 
-// Con esta clase coordinamos las consultas y registros del historial de gestiones de oportunidades.
 class SeguimientoRepository(
-    private val seguimientoDao: SeguimientoDao
+    private val seguimientoDao: SeguimientoDao,
+    private val api: AgenciaApi = RetrofitClient.retrofit.create(AgenciaApi::class.java)
 ) {
-    // Con esta función observamos las gestiones asociadas a una oportunidad específica.
+
     fun obtenerSeguimientosPorOportunidad(oportunidadId: Long): Flow<List<Seguimiento>> {
         return seguimientoDao.obtenerSeguimientosPorOportunidad(oportunidadId)
     }
 
-    // Con esta función observamos todas las gestiones globales registradas en el sistema.
     val todosLosSeguimientos: Flow<List<Seguimiento>> = seguimientoDao.obtenerTodosLosSeguimientos()
 
-    // Con esta función registramos una nueva gestión comercial.
-    suspend fun insertarSeguimiento(seguimiento: Seguimiento): Long {
-        return seguimientoDao.insertarSeguimiento(seguimiento)
+    suspend fun sincronizarDesdeApi() = withContext(Dispatchers.IO) {
+        try {
+            val listaApi = api.obtenerSeguimientos()
+            listaApi.forEach { seg ->
+                try {
+                    val existente = seguimientoDao.obtenerSeguimientoPorId(seg.id)
+                    if (existente == null) {
+                        seguimientoDao.insertarSeguimiento(seg)
+                    } else {
+                        seguimientoDao.actualizarSeguimiento(seg)
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
-    // Con esta función eliminamos un seguimiento si fuese necesario.
-    suspend fun eliminarSeguimiento(seguimiento: Seguimiento) {
-        seguimientoDao.eliminarSeguimiento(seguimiento)
+    suspend fun insertarSeguimiento(seguimiento: Seguimiento): Long = withContext(Dispatchers.IO) {
+        try {
+            val response = api.crearSeguimiento(seguimiento)
+            val creado = response.body()
+            if (response.isSuccessful && creado != null) {
+                val existente = seguimientoDao.obtenerSeguimientoPorId(creado.id)
+                if (existente == null) {
+                    seguimientoDao.insertarSeguimiento(creado)
+                } else {
+                    seguimientoDao.actualizarSeguimiento(creado)
+                }
+                creado.id
+            } else {
+                seguimientoDao.insertarSeguimiento(seguimiento)
+            }
+        } catch (e: Exception) {
+            try {
+                seguimientoDao.insertarSeguimiento(seguimiento)
+            } catch (ex: Exception) {
+                0L
+            }
+        }
+    }
+
+    suspend fun actualizarSeguimiento(seguimiento: Seguimiento) = withContext(Dispatchers.IO) {
+        try {
+            if (seguimiento.id > 0) {
+                api.actualizarSeguimiento(seguimiento.id, seguimiento)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        try {
+            seguimientoDao.actualizarSeguimiento(seguimiento)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    suspend fun eliminarSeguimiento(seguimiento: Seguimiento) = withContext(Dispatchers.IO) {
+        try {
+            if (seguimiento.id > 0) {
+                api.eliminarSeguimiento(seguimiento.id)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        try {
+            seguimientoDao.eliminarSeguimiento(seguimiento)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 }

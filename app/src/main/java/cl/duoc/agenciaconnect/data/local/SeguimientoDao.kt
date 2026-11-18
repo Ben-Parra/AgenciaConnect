@@ -3,7 +3,9 @@ package cl.duoc.agenciaconnect.data.local
 import androidx.room.Dao
 import androidx.room.Delete
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Update
 import cl.duoc.agenciaconnect.data.model.Seguimiento
 import kotlinx.coroutines.flow.Flow
 
@@ -19,9 +21,17 @@ interface SeguimientoDao {
     @Query("SELECT * FROM seguimientos ORDER BY id DESC")
     fun obtenerTodosLosSeguimientos(): Flow<List<Seguimiento>>
 
+    // Con esta consulta obtenemos un seguimiento por su identificador.
+    @Query("SELECT * FROM seguimientos WHERE id = :id")
+    suspend fun obtenerSeguimientoPorId(id: Long): Seguimiento?
+
     // Con esta operación guardamos una nueva gestión comercial.
-    @Insert
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertarSeguimiento(seguimiento: Seguimiento): Long
+
+    // Con esta operación actualizamos los datos de un seguimiento existente.
+    @Update
+    suspend fun actualizarSeguimiento(seguimiento: Seguimiento)
 
     // Con esta operación eliminamos una gestión si fuese necesario.
     @Delete

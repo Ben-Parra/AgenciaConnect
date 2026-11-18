@@ -2,33 +2,94 @@ package cl.duoc.agenciaconnect.data.repository
 
 import cl.duoc.agenciaconnect.data.local.ContactoDao
 import cl.duoc.agenciaconnect.data.model.Contacto
+import cl.duoc.agenciaconnect.data.remote.AgenciaApi
+import cl.duoc.agenciaconnect.data.remote.RetrofitClient
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.withContext
 
-// Con esta clase conectamos el ViewModel con las operaciones de contactos de la base de datos.
 class ContactoRepository(
-    private val contactoDao: ContactoDao
+    private val contactoDao: ContactoDao,
+    private val api: AgenciaApi = RetrofitClient.retrofit.create(AgenciaApi::class.java)
 ) {
 
-    // Con este flujo observamos los contactos registrados y sus cambios.
     val contactos: Flow<List<Contacto>> = contactoDao.obtenerContactos()
 
-    // Con esta función buscamos un contacto por su identificador.
-    suspend fun obtenerContactoPorId(id: Long): Contacto? {
-        return contactoDao.obtenerContactoPorId(id)
+    suspend fun obtenerContactoPorId(id: Long): Contacto? = withContext(Dispatchers.IO) {
+        contactoDao.obtenerContactoPorId(id)
     }
 
-    // Con esta función registramos un contacto nuevo.
-    suspend fun insertarContacto(contacto: Contacto): Long {
-        return contactoDao.insertarContacto(contacto)
+    suspend fun sincronizarDesdeApi() = withContext(Dispatchers.IO) {
+        try {
+            val listaApi = api.obtenerContactos()
+            listaApi.forEach { contacto ->
+                try {
+                    val existente = contactoDao.obtenerContactoPorId(contacto.id)
+                    if (existente == null) {
+                        contactoDao.insertarContacto(contacto)
+                    } else {
+                        contactoDao.actualizarContacto(contacto)
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
-    // Con esta función actualizamos un contacto existente.
-    suspend fun actualizarContacto(contacto: Contacto) {
-        contactoDao.actualizarContacto(contacto)
+    suspend fun insertarContacto(contacto: Contacto): Long = withContext(Dispatchers.IO) {
+        try {
+            val response = api.crearContacto(contacto)
+            val creado = response.body()
+            if (response.isSuccessful && creado != null) {
+                val existente = contactoDao.obtenerContactoPorId(creado.id)
+                if (existente == null) {
+                    contactoDao.insertarContacto(creado)
+                } else {
+                    contactoDao.actualizarContacto(creado)
+                }
+                creado.id
+            } else {
+                contactoDao.insertarContacto(contacto)
+            }
+        } catch (e: Exception) {
+            try {
+                contactoDao.insertarContacto(contacto)
+            } catch (ex: Exception) {
+                0L
+            }
+        }
     }
 
-    // Con esta función eliminamos el contacto seleccionado.
-    suspend fun eliminarContacto(contacto: Contacto) {
-        contactoDao.eliminarContacto(contacto)
+    suspend fun actualizarContacto(contacto: Contacto) = withContext(Dispatchers.IO) {
+        try {
+            if (contacto.id > 0) {
+                api.actualizarContacto(contacto.id, contacto)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        try {
+            contactoDao.actualizarContacto(contacto)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    suspend fun eliminarContacto(contacto: Contacto) = withContext(Dispatchers.IO) {
+        try {
+            if (contacto.id > 0) {
+                api.eliminarContacto(contacto.id)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        try {
+            contactoDao.eliminarContacto(contacto)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 }

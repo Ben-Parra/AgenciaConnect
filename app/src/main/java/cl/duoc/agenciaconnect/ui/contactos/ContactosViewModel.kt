@@ -44,6 +44,11 @@ class ContactosViewModel(application: Application) : AndroidViewModel(applicatio
                 _uiState.update { it.copy(organizaciones = organizaciones) }
             }
         }
+
+        // Sincronización inicial desde la API remota (Spring Boot)
+        viewModelScope.launch {
+            contactoRepository.sincronizarDesdeApi()
+        }
     }
 
     // Con estas funciones actualizamos los campos del formulario.

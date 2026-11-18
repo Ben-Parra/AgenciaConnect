@@ -19,9 +19,12 @@ interface EventoDao {
     @Query("SELECT * FROM eventos ORDER BY id DESC")
     fun obtenerEventos(): Flow<List<Evento>>
 
-    // Con esta función guardamos un evento nuevo
-    // y dejamos que Room genere su identificador.
-    @Insert(onConflict = OnConflictStrategy.ABORT)
+    // Con esta consulta obtenemos un evento por su identificador.
+    @Query("SELECT * FROM eventos WHERE id = :id")
+    suspend fun obtenerEventoPorId(id: Long): Evento?
+
+    // Con esta función guardamos un evento nuevo.
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertarEvento(evento: Evento): Long
 
     // Con esta función actualizamos los datos de un evento existente.

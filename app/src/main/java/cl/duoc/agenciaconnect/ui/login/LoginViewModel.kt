@@ -25,6 +25,13 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
     private val _uiState = MutableStateFlow(LoginUiState())
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
 
+    init {
+        // Sincronización inicial de usuarios desde la API remota (Spring Boot)
+        viewModelScope.launch {
+            usuarioRepository.sincronizarDesdeApi()
+        }
+    }
+
     // Con esta función actualizamos el correo ingresado y limpiamos errores previos.
     fun cambiarCorreo(nuevoCorreo: String) {
         _uiState.update {

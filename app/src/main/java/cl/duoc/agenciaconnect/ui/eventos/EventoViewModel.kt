@@ -54,6 +54,11 @@ class EventoViewModel(application: Application) : AndroidViewModel(application) 
                 }
             }
         }
+
+        // Sincronización inicial desde la API remota (Spring Boot)
+        viewModelScope.launch {
+            repositorio.sincronizarDesdeApi()
+        }
     }
 
     // Con esta función actualizamos el nombre y limpiamos su error anterior.

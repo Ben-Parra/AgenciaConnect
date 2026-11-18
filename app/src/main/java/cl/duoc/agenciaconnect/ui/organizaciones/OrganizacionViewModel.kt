@@ -41,6 +41,11 @@ class OrganizacionViewModel(application: Application) : AndroidViewModel(applica
                 )
             }
         }
+
+        // Sincronización inicial desde la API remota (Spring Boot)
+        viewModelScope.launch {
+            repository.sincronizarDesdeApi()
+        }
     }
 
     // Con esta función actualizamos el nombre escrito en el formulario.

@@ -40,6 +40,9 @@ class SeguimientoViewModel(application: Application) : AndroidViewModel(applicat
     // Con esta función observamos las acciones registradas para una oportunidad específica.
     fun cargarSeguimientos(oportunidadId: Long) {
         viewModelScope.launch {
+            repository.sincronizarDesdeApi()
+        }
+        viewModelScope.launch {
             repository.obtenerSeguimientosPorOportunidad(oportunidadId).collect { lista ->
                 _uiState.update { it.copy(seguimientos = lista) }
             }

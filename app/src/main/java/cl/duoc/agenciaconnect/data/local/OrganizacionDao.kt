@@ -3,6 +3,7 @@ package cl.duoc.agenciaconnect.data.local
 import androidx.room.Dao
 import androidx.room.Delete
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
 import cl.duoc.agenciaconnect.data.model.Organizacion
@@ -16,8 +17,12 @@ interface OrganizacionDao {
     @Query("SELECT * FROM organizaciones ORDER BY id DESC")
     fun obtenerOrganizaciones(): Flow<List<Organizacion>>
 
+    // Con esta consulta obtenemos una organización por su identificador.
+    @Query("SELECT * FROM organizaciones WHERE id = :id")
+    suspend fun obtenerOrganizacionPorId(id: Long): Organizacion?
+
     // Con esta operación guardamos una organización y recibimos el identificador generado.
-    @Insert
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertarOrganizacion(organizacion: Organizacion): Long
 
     // Con esta operación actualizamos los datos de una organización existente.
