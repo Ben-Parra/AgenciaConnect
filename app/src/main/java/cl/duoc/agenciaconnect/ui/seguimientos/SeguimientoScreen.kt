@@ -1,26 +1,32 @@
 package cl.duoc.agenciaconnect.ui.seguimientos
 
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -28,10 +34,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cl.duoc.agenciaconnect.data.model.Oportunidad
@@ -199,7 +207,7 @@ fun SeguimientoScreen(
 
         LazyColumn(
             modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             if (uiState.seguimientos.isEmpty()) {
                 item {
@@ -207,24 +215,108 @@ fun SeguimientoScreen(
                 }
             } else {
                 items(uiState.seguimientos, key = { it.id }) { seg ->
-                    Card(
+                    ElevatedCard(
                         modifier = Modifier
                             .fillMaxWidth()
                             .animateItem(
                                 fadeInSpec = tween(durationMillis = 300),
                                 placementSpec = tween(durationMillis = 300),
                                 fadeOutSpec = tween(durationMillis = 300)
-                            )
+                            ),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.elevatedCardColors(
+                            containerColor = MaterialTheme.colorScheme.surface
+                        ),
+                        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
                     ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Text(
-                                text = "${seg.tipoAccion} - ${seg.fechaHora}",
-                                fontWeight = FontWeight.Bold,
-                                style = MaterialTheme.typography.bodyMedium
+                        Row(modifier = Modifier.fillMaxWidth()) {
+                            // Franja lateral de color primario
+                            Box(
+                                modifier = Modifier
+                                    .width(6.dp)
+                                    .fillMaxHeight()
+                                    .background(MaterialTheme.colorScheme.primary)
                             )
-                            Text(text = "Por: ${seg.usuarioNombre}", style = MaterialTheme.typography.labelMedium)
-                            Text(text = "Resultado: ${seg.resultado}", style = MaterialTheme.typography.bodySmall)
-                            Text(text = "Próximo paso: ${seg.proximaAccion}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                // Encabezado: Acción + Badge de Fecha/Hora
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = seg.tipoAccion,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.weight(1f)
+                                    )
+
+                                    Surface(
+                                        shape = RoundedCornerShape(50),
+                                        color = MaterialTheme.colorScheme.surfaceVariant
+                                    ) {
+                                        Text(
+                                            text = seg.fechaHora,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                        )
+                                    }
+                                }
+
+                                // Sub-encabezado: Responsable
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text("👤 ", fontSize = 13.sp)
+                                    Text("Por: ", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall)
+                                    Text(seg.usuarioNombre, style = MaterialTheme.typography.bodySmall)
+                                }
+
+                                // Bloque sutil con Resultado y Próximo paso
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(10.dp),
+                                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Row(verticalAlignment = Alignment.Top) {
+                                            Text("📝 ", fontSize = 13.sp)
+                                            Column {
+                                                Text("Resultado:", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall)
+                                                Text(seg.resultado, style = MaterialTheme.typography.bodySmall)
+                                            }
+                                        }
+
+                                        if (seg.proximaAccion.isNotBlank()) {
+                                            Row(verticalAlignment = Alignment.Top) {
+                                                Text("➡️ ", fontSize = 13.sp)
+                                                Column {
+                                                    Text(
+                                                        text = "Próximo paso:",
+                                                        fontWeight = FontWeight.Bold,
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = MaterialTheme.colorScheme.primary
+                                                    )
+                                                    Text(
+                                                        text = seg.proximaAccion,
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = MaterialTheme.colorScheme.primary,
+                                                        fontWeight = FontWeight.SemiBold
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }

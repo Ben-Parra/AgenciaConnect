@@ -1,26 +1,37 @@
 package cl.duoc.agenciaconnect.ui.contactos
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 
@@ -32,7 +43,6 @@ fun ContactosRegistradosScreen(
     onEditarContacto: () -> Unit,
     viewModel: ContactosViewModel = viewModel()
 ) {
-    // Con este estado observamos los contactos y las organizaciones disponibles.
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     Column(
@@ -40,7 +50,6 @@ fun ContactosRegistradosScreen(
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        // Con este título identificamos la pantalla de contactos registrados.
         Text(
             text = "Contactos registrados",
             style = MaterialTheme.typography.headlineMedium,
@@ -52,73 +61,164 @@ fun ContactosRegistradosScreen(
             modifier = Modifier.padding(top = 8.dp, bottom = 12.dp)
         )
 
-        // Con esta lista presentamos cada contacto en una tarjeta independiente.
-        LazyColumn(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            items(
-                items = uiState.contactos,
-                key = { contacto -> contacto.id }
-            ) { contacto ->
+        if (uiState.contactos.isEmpty()) {
+            Text("Aún no hay contactos registrados.")
+        } else {
+            LazyColumn(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                items(
+                    items = uiState.contactos,
+                    key = { contacto -> contacto.id }
+                ) { contacto ->
+                    val organizacion = uiState.organizaciones.find {
+                        it.id == contacto.organizacionId
+                    }
 
-                // Con esta búsqueda obtenemos el nombre de la organización asociada.
-                val organizacion = uiState.organizaciones.find {
-                    it.id == contacto.organizacionId
-                }
-
-                Card(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ElevatedCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.elevatedCardColors(
+                            containerColor = MaterialTheme.colorScheme.surface
+                        ),
+                        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
                     ) {
-                        Text(
-                            text = contacto.nombreCompleto,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Row(modifier = Modifier.fillMaxWidth()) {
+                            // Franja lateral de color
+                            Box(
+                                modifier = Modifier
+                                    .width(6.dp)
+                                    .fillMaxHeight()
+                                    .background(MaterialTheme.colorScheme.secondary)
+                            )
 
-                        Text(
-                            text = "Organización: ${organizacion?.nombre ?: "No disponible"}"
-                        )
-                        Text(text = "Cargo: ${contacto.cargo}")
-                        Text(text = "Área: ${contacto.area}")
-                        Text(text = "Correo: ${contacto.correo}")
-
-                        if (contacto.telefono.isNotBlank()) {
-                            Text(text = "Teléfono: ${contacto.telefono}")
-                        }
-
-                        Text(text = "Medio preferido: ${contacto.medioPreferido}")
-
-                        if (contacto.observaciones.isNotBlank()) {
-                            Text(text = "Observaciones: ${contacto.observaciones}")
-                        }
-
-                        // Con estos botones permitimos editar o solicitar la eliminación.
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Button(
-                                onClick = {
-                                    viewModel.editarContacto(contacto)
-                                    onEditarContacto()
-                                },
-                                modifier = Modifier.weight(1f)
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Text("Editar")
-                            }
+                                // Encabezado
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = contacto.nombreCompleto,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f)
+                                    )
 
-                            OutlinedButton(
-                                onClick = {
-                                    viewModel.solicitarEliminarContacto(contacto)
-                                },
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text("Eliminar")
+                                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        TextButton(
+                                            onClick = {
+                                                viewModel.editarContacto(contacto)
+                                                onEditarContacto()
+                                            },
+                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                        ) {
+                                            Text("✏ Editar", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                        }
+
+                                        TextButton(
+                                            onClick = {
+                                                viewModel.solicitarEliminarContacto(contacto)
+                                            },
+                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                        ) {
+                                            Text(
+                                                text = "🗑 Eliminar",
+                                                fontSize = 12.sp,
+                                                color = MaterialTheme.colorScheme.error,
+                                                fontWeight = FontWeight.SemiBold
+                                            )
+                                        }
+                                    }
+                                }
+
+                                // Badges Píldoras de Organización y Cargo/Área
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Surface(
+                                        shape = RoundedCornerShape(50),
+                                        color = MaterialTheme.colorScheme.primaryContainer
+                                    ) {
+                                        Text(
+                                            text = "🏢 ${organizacion?.nombre ?: "Sin org"}",
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                            fontWeight = FontWeight.Bold,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                        )
+                                    }
+
+                                    Surface(
+                                        shape = RoundedCornerShape(50),
+                                        color = MaterialTheme.colorScheme.secondaryContainer
+                                    ) {
+                                        Text(
+                                            text = "${contacto.cargo} • ${contacto.area}",
+                                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                            fontWeight = FontWeight.SemiBold,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                        )
+                                    }
+                                }
+
+                                // Datos secundarios compactos
+                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text("✉ ", fontSize = 13.sp)
+                                        Text("Correo: ", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall)
+                                        Text(
+                                            text = contacto.correo,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+
+                                    if (contacto.telefono.isNotBlank()) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text("📞 ", fontSize = 13.sp)
+                                            Text("Teléfono: ", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall)
+                                            Text(contacto.telefono, style = MaterialTheme.typography.bodySmall)
+                                        }
+                                    }
+
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text("💬 ", fontSize = 13.sp)
+                                        Text("Medio preferido: ", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall)
+                                        Text(contacto.medioPreferido, style = MaterialTheme.typography.bodySmall)
+                                    }
+                                }
+
+                                // Observaciones
+                                if (contacto.observaciones.isNotBlank()) {
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text(
+                                            text = "Obs: ${contacto.observaciones}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.padding(8.dp)
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -126,7 +226,6 @@ fun ContactosRegistradosScreen(
             }
         }
 
-        // Con este botón regresamos al formulario para registrar otro contacto.
         OutlinedButton(
             onClick = onVolverAlFormulario,
             modifier = Modifier
@@ -136,7 +235,6 @@ fun ContactosRegistradosScreen(
             Text("Volver al formulario")
         }
 
-        // Con este botón regresamos al panel administrativo.
         OutlinedButton(
             onClick = onVolver,
             modifier = Modifier.fillMaxWidth()
@@ -145,7 +243,6 @@ fun ContactosRegistradosScreen(
         }
     }
 
-    // Con este diálogo pedimos confirmación antes de eliminar un contacto.
     uiState.contactoPorEliminar?.let { contacto ->
         AlertDialog(
             onDismissRequest = {

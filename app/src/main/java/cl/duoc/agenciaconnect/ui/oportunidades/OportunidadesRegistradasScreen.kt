@@ -1,28 +1,35 @@
 package cl.duoc.agenciaconnect.ui.oportunidades
 
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -34,6 +41,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -304,56 +312,168 @@ private fun TarjetaOportunidad(
 ) {
     val colores = MaterialTheme.coloresOportunidad
 
-    Card(modifier = modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(text = oportunidad.nombre, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                Text(
-                    text = oportunidad.prioridad.etiqueta,
-                    fontWeight = FontWeight.Bold,
-                    color = when (oportunidad.prioridad) {
-                        PrioridadOportunidad.ALTA -> colores.prioridadAlta
-                        PrioridadOportunidad.MEDIA -> colores.prioridadMedia
-                        PrioridadOportunidad.BAJA -> colores.prioridadBaja
-                    }
-                )
-            }
+    val prioridadColor = when (oportunidad.prioridad) {
+        PrioridadOportunidad.ALTA -> colores.prioridadAlta
+        PrioridadOportunidad.MEDIA -> colores.prioridadMedia
+        PrioridadOportunidad.BAJA -> colores.prioridadBaja
+    }
 
-            Text("Tipo: ${oportunidad.tipo.etiqueta}", style = MaterialTheme.typography.bodySmall)
+    val estadoColor = when (oportunidad.estado) {
+        EstadoOportunidad.PARTICIPACION_CONFIRMADA -> colores.estadoConfirmado
+        EstadoOportunidad.OPORTUNIDAD_DESCARTADA -> colores.estadoDescartado
+        EstadoOportunidad.EN_ESPERA_RESPUESTA -> colores.estadoEnEspera
+        else -> MaterialTheme.colorScheme.primary
+    }
 
-            // Mostramos la fecha formateada visualmente con barras (DD/MM/AAAA)
-            if (oportunidad.fechaDeteccion.isNotBlank()) {
-                Text("Detectada el: ${formatearFechaVisual(oportunidad.fechaDeteccion)}", style = MaterialTheme.typography.bodySmall)
-            }
-
-            Text(
-                text = "Estado: ${oportunidad.estado.etiqueta}",
-                fontWeight = FontWeight.SemiBold,
-                style = MaterialTheme.typography.bodySmall,
-                color = when (oportunidad.estado) {
-                    EstadoOportunidad.PARTICIPACION_CONFIRMADA -> colores.estadoConfirmado
-                    EstadoOportunidad.OPORTUNIDAD_DESCARTADA -> colores.estadoDescartado
-                    EstadoOportunidad.EN_ESPERA_RESPUESTA -> colores.estadoEnEspera
-                    else -> MaterialTheme.colorScheme.onSurface
-                }
+    ElevatedCard(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(modifier = Modifier.fillMaxWidth()) {
+            // Franja lateral de color (Prioridad)
+            Box(
+                modifier = Modifier
+                    .width(6.dp)
+                    .fillMaxHeight()
+                    .background(prioridadColor)
             )
-            Text("Potencial: ${oportunidad.potencial.etiqueta}", style = MaterialTheme.typography.bodySmall)
-            Text("Responsable: ${oportunidad.responsable}", style = MaterialTheme.typography.bodySmall)
 
-            if (oportunidad.observaciones.isNotBlank()) {
-                Text("Obs: ${oportunidad.observaciones}", style = MaterialTheme.typography.bodySmall)
-            }
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Encabezado: Título principal y botones de acción limpios
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = oportunidad.nombre,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
 
-            Spacer(modifier = Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        TextButton(
+                            onClick = onEditar,
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                        ) {
+                            Text("✏ Editar", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        }
 
-            Button(onClick = onVerSeguimiento, modifier = Modifier.fillMaxWidth()) {
-                Text("Seguimiento y Calendario", fontSize = 13.sp)
-            }
+                        if (esSupervisor) {
+                            TextButton(
+                                onClick = onEliminar,
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                            ) {
+                                Text("🗑 Eliminar", fontSize = 12.sp, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                    }
+                }
 
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = onEditar, modifier = Modifier.weight(1f)) { Text("Editar", fontSize = 12.sp) }
-                if (esSupervisor) {
-                    OutlinedButton(onClick = onEliminar, modifier = Modifier.weight(1f)) { Text("Eliminar", fontSize = 12.sp) }
+                // Badges / Píldoras de color para estado, prioridad y tipo
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = prioridadColor.copy(alpha = 0.15f)
+                    ) {
+                        Text(
+                            text = "Prioridad: ${oportunidad.prioridad.etiqueta}",
+                            color = prioridadColor,
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                        )
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = estadoColor.copy(alpha = 0.15f)
+                    ) {
+                        Text(
+                            text = oportunidad.estado.etiqueta,
+                            color = estadoColor,
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                        )
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = MaterialTheme.colorScheme.secondaryContainer
+                    ) {
+                        Text(
+                            text = oportunidad.tipo.etiqueta,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                        )
+                    }
+                }
+
+                // Datos secundarios compactos con viñeta de color e íconos unicode
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("👤 ", fontSize = 13.sp)
+                        Text("Responsable: ", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall)
+                        Text(oportunidad.responsable, style = MaterialTheme.typography.bodySmall)
+                    }
+
+                    if (oportunidad.fechaDeteccion.isNotBlank()) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("🗓 ", fontSize = 13.sp)
+                            Text("Detectada el: ", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall)
+                            Text(formatearFechaVisual(oportunidad.fechaDeteccion), style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("⭐ ", fontSize = 13.sp)
+                        Text("Potencial: ", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall)
+                        Text(oportunidad.potencial.etiqueta, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+
+                // Observaciones limitadas a 2 líneas en contenedor suave
+                if (oportunidad.observaciones.isNotBlank()) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = "Obs: ${oportunidad.observaciones}",
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(8.dp)
+                        )
+                    }
+                }
+
+                // Botón principal
+                Button(
+                    onClick = onVerSeguimiento,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text("Seguimiento y Calendario", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
