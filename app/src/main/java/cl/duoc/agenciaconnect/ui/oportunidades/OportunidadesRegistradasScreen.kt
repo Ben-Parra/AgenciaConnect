@@ -273,7 +273,11 @@ fun OportunidadesRegistradasScreen(
                             onEditarOportunidad(oportunidad)
                         },
                         onVerSeguimiento = { onVerSeguimiento(oportunidad) },
-                        onEliminar = { viewModel.solicitarEliminacion(oportunidad) }
+                        onEliminar = {
+                            if (esSupervisor) {
+                                viewModel.solicitarEliminacion(oportunidad)
+                            }
+                        }
                     )
                 }
             }
@@ -295,7 +299,16 @@ fun OportunidadesRegistradasScreen(
             onDismissRequest = { viewModel.cancelarEliminacion() },
             title = { Text("Eliminar oportunidad") },
             text = { Text("¿Deseas eliminar definitivamente la oportunidad \"${oportunidad.nombre}\"?") },
-            confirmButton = { TextButton(onClick = { viewModel.confirmarEliminacion() }) { Text("Eliminar") } },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.eliminarOportunidad(oportunidad)
+                        viewModel.cancelarEliminacion()
+                    }
+                ) {
+                    Text("Eliminar")
+                }
+            },
             dismissButton = { TextButton(onClick = { viewModel.cancelarEliminacion() }) { Text("Cancelar") } }
         )
     }

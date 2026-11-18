@@ -4,6 +4,10 @@ import androidx.compose.foundation.Image
 import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import android.os.Bundle
@@ -95,9 +99,29 @@ class MainActivity : ComponentActivity() {
                 val usuarioActual = loginUiState.usuarioAutenticado
 
                 val eventoViewModel: EventoViewModel = viewModel()
+                val eventoUiState by eventoViewModel.uiState.collectAsStateWithLifecycle()
+
                 val organizacionViewModel: OrganizacionViewModel = viewModel()
+                val organizacionUiState by organizacionViewModel.uiState.collectAsStateWithLifecycle()
+
                 val contactosViewModel: ContactosViewModel = viewModel()
+                val contactosUiState by contactosViewModel.uiState.collectAsStateWithLifecycle()
+
                 val oportunidadViewModel: OportunidadViewModel = viewModel()
+                val oportunidadUiState by oportunidadViewModel.uiState.collectAsStateWithLifecycle()
+
+                // Criterio de conteo reactivo de Oportunidades según el Rol del usuario
+                val esSupervisor = usuarioActual?.rol == "SUPERVISOR"
+                val conteoOportunidades = if (esSupervisor) {
+                    oportunidadUiState.oportunidades.size
+                } else {
+                    val normUser = usuarioActual?.nombre.orEmpty().replace(Regex("\\s*\\(.*?\\)"), "").trim()
+                    oportunidadUiState.oportunidades.count { op ->
+                        val normOp = op.responsable.replace(Regex("\\s*\\(.*?\\)"), "").trim()
+                        normOp.equals(normUser, ignoreCase = true) ||
+                                op.responsable.trim().equals(usuarioActual?.nombre.orEmpty().trim(), ignoreCase = true)
+                    }
+                }
 
                 Scaffold(
                     modifier = Modifier.fillMaxSize()
@@ -142,6 +166,10 @@ class MainActivity : ComponentActivity() {
                             composable("admin") {
                                 PantallaAdmin(
                                     usuario = usuarioActual,
+                                    conteoOportunidades = conteoOportunidades,
+                                    conteoEventos = eventoUiState.eventos.size,
+                                    conteoOrganizaciones = organizacionUiState.organizaciones.size,
+                                    conteoContactos = contactosUiState.contactos.size,
                                     onGestionarEventos = {
                                         eventoViewModel.limpiarFormulario()
                                         navController.navigate("eventos")
@@ -527,23 +555,28 @@ fun PantallaLoginAdmin(
     }
 }
 
-// Con esta función mostramos el panel principal, un dashboard de resumen y reflejamos el usuario autenticado.
+// Con esta función mostramos el panel principal, un dashboard interactivo de resumen en tiempo real según el rol.
 @Composable
 fun PantallaAdmin(
     usuario: cl.duoc.agenciaconnect.data.model.Usuario?,
+    conteoOportunidades: Int,
+    conteoEventos: Int,
+    conteoOrganizaciones: Int,
+    conteoContactos: Int,
     onGestionarEventos: () -> Unit,
     onGestionarOrganizaciones: () -> Unit,
     onGestionarContactos: () -> Unit,
     onGestionarOportunidades: () -> Unit,
     onCerrarSesion: () -> Unit
 ) {
+    val esSupervisor = usuario?.rol == "SUPERVISOR"
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(androidx.compose.foundation.rememberScrollState())
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+            .padding(20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
             text = "Panel de control",
@@ -552,11 +585,12 @@ fun PantallaAdmin(
             color = MaterialTheme.colorScheme.primary
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(4.dp))
 
         // Con este texto identificamos al colaborador y su perfil asignado.
         Text(
             text = "Usuario: ${usuario?.nombre ?: "Sin sesión"}",
+            style = MaterialTheme.typography.bodyLarge,
             fontWeight = FontWeight.Medium
         )
         Text(
@@ -565,23 +599,29 @@ fun PantallaAdmin(
             style = MaterialTheme.typography.bodyMedium
         )
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        // Tarjeta Dashboard / Resumen de Estado del Sistema
-        androidx.compose.material3.Card(
-            modifier = Modifier.fillMaxWidth()
+        // Tarjeta Dashboard / Resumen de Estado del Sistema según el Rol
+        ElevatedCard(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.elevatedCardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            ),
+            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp)
         ) {
             Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                modifier = Modifier.padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Text(
-                    text = "Resumen de Gestión (Dashboard)",
+                    text = if (esSupervisor) "📊 Vista General del Supervisor" else "📋 Tu Resumen Ejecutivo",
                     fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.titleSmall
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = if (usuario?.rol == "SUPERVISOR") {
+                    text = if (esSupervisor) {
                         "• Visibilidad global del pipeline habilitada.\n• Gestión completa de eventos y asignaciones."
                     } else {
                         "• Vista filtrada a tus oportunidades asignadas.\n• Registro de seguimientos y calendario activo."
@@ -593,47 +633,149 @@ fun PantallaAdmin(
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        Button(
-            onClick = onGestionarEventos,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Gestionar eventos")
+        Text(
+            text = "Módulos principales",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.align(Alignment.Start)
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Cuadrícula 2x2 con Tarjetas Dashboard Interactivas
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            // Fila 1: Oportunidades & Eventos
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                TarjetaDashboardModulo(
+                    titulo = "Oportunidades",
+                    conteo = conteoOportunidades,
+                    etiquetaContexto = if (esSupervisor) "registradas" else "asignadas a ti",
+                    iconoEmoji = "🎯",
+                    colorContenedor = MaterialTheme.colorScheme.primaryContainer,
+                    onClick = onGestionarOportunidades,
+                    modifier = Modifier.weight(1f)
+                )
+
+                TarjetaDashboardModulo(
+                    titulo = "Eventos",
+                    conteo = conteoEventos,
+                    etiquetaContexto = "registrados",
+                    iconoEmoji = "🗓",
+                    colorContenedor = MaterialTheme.colorScheme.secondaryContainer,
+                    onClick = onGestionarEventos,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            // Fila 2: Organizaciones & Contactos
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                TarjetaDashboardModulo(
+                    titulo = "Organizaciones",
+                    conteo = conteoOrganizaciones,
+                    etiquetaContexto = "registradas",
+                    iconoEmoji = "🏢",
+                    colorContenedor = MaterialTheme.colorScheme.tertiaryContainer,
+                    onClick = onGestionarOrganizaciones,
+                    modifier = Modifier.weight(1f)
+                )
+
+                TarjetaDashboardModulo(
+                    titulo = "Contactos",
+                    conteo = conteoContactos,
+                    etiquetaContexto = "registrados",
+                    iconoEmoji = "👥",
+                    colorContenedor = MaterialTheme.colorScheme.surfaceVariant,
+                    onClick = onGestionarContactos,
+                    modifier = Modifier.weight(1f)
+                )
+            }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Button(
-            onClick = onGestionarOrganizaciones,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Gestionar organizaciones")
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Button(
-            onClick = onGestionarContactos,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Gestionar contactos")
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Button(
-            onClick = onGestionarOportunidades,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Gestionar oportunidades")
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
         TextButton(
             onClick = onCerrarSesion,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Cerrar sesión")
+            Text("Cerrar sesión", fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        }
+    }
+}
+
+// Con este composable auxiliar diseñamos cada tarjeta interactiva del Dashboard.
+@Composable
+private fun TarjetaDashboardModulo(
+    titulo: String,
+    conteo: Int,
+    etiquetaContexto: String,
+    iconoEmoji: String,
+    colorContenedor: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    ElevatedCard(
+        onClick = onClick,
+        modifier = modifier,
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 3.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = colorContenedor,
+                    modifier = Modifier.size(42.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(text = iconoEmoji, fontSize = 20.sp)
+                    }
+                }
+
+                Text(
+                    text = "➔",
+                    fontSize = 16.sp,
+                    color = MaterialTheme.colorScheme.outline
+                )
+            }
+
+            Text(
+                text = conteo.toString(),
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            Column {
+                Text(
+                    text = titulo,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = etiquetaContexto,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.secondary
+                )
+            }
         }
     }
 }

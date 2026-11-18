@@ -255,28 +255,28 @@ class OportunidadViewModel(application: Application) : AndroidViewModel(applicat
         _uiState.update { it.copy(oportunidadPorEliminar = null) }
     }
 
-    // Con esta función eliminamos definitivamente la oportunidad confirmada por el usuario.
-    fun confirmarEliminacion() {
-        val oportunidad = _uiState.value.oportunidadPorEliminar ?: return
+    // Con esta función eliminamos definitivamente una oportunidad seleccionada.
+    fun eliminarOportunidad(oportunidad: Oportunidad) {
+        _uiState.update { it.copy(oportunidadPorEliminar = null) }
 
         viewModelScope.launch {
             try {
                 oportunidadRepository.eliminarOportunidad(oportunidad)
                 _uiState.update {
-                    it.copy(
-                        oportunidadPorEliminar = null,
-                        mensaje = "Oportunidad eliminada correctamente."
-                    )
+                    it.copy(mensaje = "Oportunidad eliminada correctamente.")
                 }
             } catch (e: Exception) {
                 _uiState.update {
-                    it.copy(
-                        oportunidadPorEliminar = null,
-                        mensaje = "No se pudo eliminar la oportunidad."
-                    )
+                    it.copy(mensaje = "No se pudo eliminar la oportunidad.")
                 }
             }
         }
+    }
+
+    // Con esta función eliminamos la oportunidad confirmada desde la interfaz.
+    fun confirmarEliminacion() {
+        val oportunidad = _uiState.value.oportunidadPorEliminar ?: return
+        eliminarOportunidad(oportunidad)
     }
 
     // Con esta función restablecemos los campos del formulario y el modo de edición.

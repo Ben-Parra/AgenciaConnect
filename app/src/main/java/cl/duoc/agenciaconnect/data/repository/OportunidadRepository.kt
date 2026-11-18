@@ -73,7 +73,9 @@ class OportunidadRepository(
 
     suspend fun eliminarOportunidad(oportunidad: Oportunidad) = withContext(Dispatchers.IO) {
         try {
-            api.eliminarOportunidad(oportunidad.id)
+            if (oportunidad.id > 0) {
+                api.eliminarOportunidad(oportunidad.id)
+            }
         } catch (e: Exception) {
             e.printStackTrace()
         }
