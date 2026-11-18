@@ -33,12 +33,11 @@ import kotlinx.coroutines.launch
 // Con este ViewModel coordinamos el formulario, las validaciones y las operaciones CRUD de oportunidades.
 class OportunidadViewModel(application: Application) : AndroidViewModel(application) {
 
-    // Con estas dependencias accedemos a las bases de datos de Room y a sus repositorios.
+    // Reemplaza las líneas del inicio de tu OportunidadViewModel donde instancias los repositorios por esto:
     private val database = AgenciaDatabase.obtenerInstancia(application)
     private val oportunidadRepository = OportunidadRepository(database.oportunidadDao())
     private val organizacionRepository = OrganizacionRepository(database.organizacionDao())
     private val eventoRepository = EventoRepository(database.eventoDao())
-
     private val usuarioRepository = UsuarioRepository(database.usuarioDao())
 
     // Con este flujo mantenemos el estado privado y observable de la interfaz.
@@ -60,6 +59,11 @@ class OportunidadViewModel(application: Application) : AndroidViewModel(applicat
             oportunidadRepository.oportunidades.collect { listaOportunidades ->
                 _uiState.update { it.copy(oportunidades = listaOportunidades) }
             }
+        }
+
+        // Con esta corrutina sincronizamos las oportunidades desde la API remota (Spring Boot) sin bloquear la UI.
+        viewModelScope.launch {
+            oportunidadRepository.sincronizarDesdeApi()
         }
 
         // Con esta corrutina cargamos las organizaciones para alimentar el selector desplegable.

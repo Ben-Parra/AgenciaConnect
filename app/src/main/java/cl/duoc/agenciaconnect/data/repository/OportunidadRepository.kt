@@ -2,34 +2,85 @@ package cl.duoc.agenciaconnect.data.repository
 
 import cl.duoc.agenciaconnect.data.local.OportunidadDao
 import cl.duoc.agenciaconnect.data.model.Oportunidad
+import cl.duoc.agenciaconnect.data.remote.AgenciaApi
+import cl.duoc.agenciaconnect.data.remote.RetrofitClient
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.withContext
 
-// Con esta clase conectamos el ViewModel con las operaciones de oportunidades de la base de datos.
 class OportunidadRepository(
-    private val oportunidadDao: OportunidadDao
+    private val oportunidadDao: OportunidadDao,
+    private val api: AgenciaApi = RetrofitClient.retrofit.create(AgenciaApi::class.java)
 ) {
 
-    // Con este flujo observamos las oportunidades registradas y sus cambios en tiempo real.
     val oportunidades: Flow<List<Oportunidad>> = oportunidadDao.obtenerOportunidades()
 
-    // Con esta función consultamos una oportunidad específica por su identificador.
-    suspend fun obtenerOportunidadPorId(id: Long): Oportunidad? {
-        return oportunidadDao.obtenerOportunidadPorId(id)
+    suspend fun sincronizarDesdeApi() = withContext(Dispatchers.IO) {
+        try {
+            val listaApi = api.obtenerOportunidades()
+            listaApi.forEach { op ->
+                try {
+                    val existente = oportunidadDao.obtenerOportunidadPorId(op.id)
+                    if (existente == null) {
+                        oportunidadDao.insertarOportunidad(op)
+                    } else {
+                        oportunidadDao.actualizarOportunidad(op)
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
-    // Con esta función registramos una nueva oportunidad comercial.
-    suspend fun insertarOportunidad(oportunidad: Oportunidad): Long {
-        return oportunidadDao.insertarOportunidad(oportunidad)
+    suspend fun insertarOportunidad(oportunidad: Oportunidad) = withContext(Dispatchers.IO) {
+        try {
+            val response = api.crearOportunidad(oportunidad)
+            val creada = response.body()
+            if (response.isSuccessful && creada != null) {
+                val existente = oportunidadDao.obtenerOportunidadPorId(creada.id)
+                if (existente == null) {
+                    oportunidadDao.insertarOportunidad(creada)
+                } else {
+                    oportunidadDao.actualizarOportunidad(creada)
+                }
+            } else {
+                oportunidadDao.insertarOportunidad(oportunidad)
+            }
+        } catch (e: Exception) {
+            try {
+                oportunidadDao.insertarOportunidad(oportunidad)
+            } catch (ex: Exception) {
+                ex.printStackTrace()
+            }
+        }
     }
 
-    // Con esta función guardamos las modificaciones de una oportunidad existente.
-    suspend fun actualizarOportunidad(oportunidad: Oportunidad) {
-        oportunidadDao.actualizarOportunidad(oportunidad)
+    suspend fun actualizarOportunidad(oportunidad: Oportunidad) = withContext(Dispatchers.IO) {
+        try {
+            api.actualizarOportunidad(oportunidad.id, oportunidad)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        try {
+            oportunidadDao.actualizarOportunidad(oportunidad)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
-    // Con esta función eliminamos la oportunidad seleccionada de la base de datos.
-    suspend fun eliminarOportunidad(oportunidad: Oportunidad) {
-        oportunidadDao.eliminarOportunidad(oportunidad)
+    suspend fun eliminarOportunidad(oportunidad: Oportunidad) = withContext(Dispatchers.IO) {
+        try {
+            api.eliminarOportunidad(oportunidad.id)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        try {
+            oportunidadDao.eliminarOportunidad(oportunidad)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
-
 }
