@@ -30,17 +30,18 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-// Con este ViewModel coordinamos el formulario, las validaciones y las operaciones CRUD de oportunidades.
+// Coordinamos el formulario, validaciones y las operaciones CRUD de oportunidades.
+// Administramos la recolección de flujos reactivos desde Room y la sincronización inicial desde Spring Boot.
 class OportunidadViewModel(application: Application) : AndroidViewModel(application) {
 
-    // Reemplaza las líneas del inicio de tu OportunidadViewModel donde instancias los repositorios por esto:
+    // Inicializamos el acceso a la base de datos local y los repositorios correspondientes.
     private val database = AgenciaDatabase.obtenerInstancia(application)
     private val oportunidadRepository = OportunidadRepository(database.oportunidadDao())
     private val organizacionRepository = OrganizacionRepository(database.organizacionDao())
     private val eventoRepository = EventoRepository(database.eventoDao())
     private val usuarioRepository = UsuarioRepository(database.usuarioDao())
 
-    // Con este flujo mantenemos el estado privado y observable de la interfaz.
+    // Exponemos el flujo de estado inmutable (StateFlow) para la observación reactiva de la UI.
     private val _uiState = MutableStateFlow(OportunidadUiState())
     val uiState: StateFlow<OportunidadUiState> = _uiState.asStateFlow()
 

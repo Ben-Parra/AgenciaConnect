@@ -215,6 +215,7 @@ fun SeguimientoScreen(
                 }
             } else {
                 items(uiState.seguimientos, key = { it.id }) { seg ->
+                    // Diseñamos la tarjeta de Bitácora de Seguimiento con franja de acento, píldora de fecha/hora, responsable e información de resultado y próximo compromiso.
                     ElevatedCard(
                         modifier = Modifier
                             .fillMaxWidth()

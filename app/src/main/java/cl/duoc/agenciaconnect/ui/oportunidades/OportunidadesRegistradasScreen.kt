@@ -314,6 +314,7 @@ fun OportunidadesRegistradasScreen(
     }
 }
 
+// Diseñamos la tarjeta estilizada de Oportunidad aplicando jerarquía visual con ElevatedCard, franja lateral por prioridad, píldoras para etiquetas semánticas y control de visibilidad por rol para la eliminación.
 @Composable
 private fun TarjetaOportunidad(
     oportunidad: Oportunidad,

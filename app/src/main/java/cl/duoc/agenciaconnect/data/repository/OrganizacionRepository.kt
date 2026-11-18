@@ -8,13 +8,17 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 
+// Repositorio híbrido para la gestión de Organizaciones.
+// Unificamos el acceso a datos remotos REST con el caché reactivo local en Room.
 class OrganizacionRepository(
     private val organizacionDao: OrganizacionDao,
     private val api: AgenciaApi = RetrofitClient.retrofit.create(AgenciaApi::class.java)
 ) {
 
+    // Exponemos las organizaciones para consumo reactivo en la interfaz y el dashboard.
     val organizaciones: Flow<List<Organizacion>> = organizacionDao.obtenerOrganizaciones()
 
+    // Sincronizamos las organizaciones desde el backend procesando cada registro sin duplicación.
     suspend fun sincronizarDesdeApi() = withContext(Dispatchers.IO) {
         try {
             val listaApi = api.obtenerOrganizaciones()
@@ -35,6 +39,7 @@ class OrganizacionRepository(
         }
     }
 
+    // Insertamos la organización vía API y guardamos en Room la entidad devuelta con su ID asignado por MySQL.
     suspend fun insertarOrganizacion(organizacion: Organizacion): Long = withContext(Dispatchers.IO) {
         try {
             val response = api.crearOrganizacion(organizacion)
@@ -51,6 +56,7 @@ class OrganizacionRepository(
                 organizacionDao.insertarOrganizacion(organizacion)
             }
         } catch (e: Exception) {
+            // Guardamos localmente en caso de indisponibilidad de red.
             try {
                 organizacionDao.insertarOrganizacion(organizacion)
             } catch (ex: Exception) {
@@ -59,6 +65,7 @@ class OrganizacionRepository(
         }
     }
 
+    // Actualizamos los datos de la empresa u organización en Spring Boot y Room.
     suspend fun actualizarOrganizacion(organizacion: Organizacion) = withContext(Dispatchers.IO) {
         try {
             if (organizacion.id > 0) {
@@ -74,6 +81,7 @@ class OrganizacionRepository(
         }
     }
 
+    // Eliminamos la organización en ambos niveles de persistencia.
     suspend fun eliminarOrganizacion(organizacion: Organizacion) = withContext(Dispatchers.IO) {
         try {
             if (organizacion.id > 0) {

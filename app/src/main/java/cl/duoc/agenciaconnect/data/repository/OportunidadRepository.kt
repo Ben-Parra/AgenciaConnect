@@ -8,13 +8,17 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 
+// Repositorio híbrido para la gestión de Oportunidades comerciales.
+// Coordinamos la persistencia reactiva en la base de datos local Room con el microservicio en Spring Boot.
 class OportunidadRepository(
     private val oportunidadDao: OportunidadDao,
     private val api: AgenciaApi = RetrofitClient.retrofit.create(AgenciaApi::class.java)
 ) {
 
+    // Exponemos la fuente de datos reactiva mediante Flow para observar cambios locales e impulsar la interfaz.
     val oportunidades: Flow<List<Oportunidad>> = oportunidadDao.obtenerOportunidades()
 
+    // Sincronizamos las oportunidades desde el backend en un hilo secundario (Dispatchers.IO) actualizando o insertando en Room.
     suspend fun sincronizarDesdeApi() = withContext(Dispatchers.IO) {
         try {
             val listaApi = api.obtenerOportunidades()
@@ -35,6 +39,7 @@ class OportunidadRepository(
         }
     }
 
+    // Registramos una oportunidad enviando la petición a la API; si responde exitosamente, guardamos en Room la versión con el ID real de MySQL.
     suspend fun insertarOportunidad(oportunidad: Oportunidad) = withContext(Dispatchers.IO) {
         try {
             val response = api.crearOportunidad(oportunidad)
@@ -50,6 +55,7 @@ class OportunidadRepository(
                 oportunidadDao.insertarOportunidad(oportunidad)
             }
         } catch (e: Exception) {
+            // Capturamos fallos de red para mantener la disponibilidad sin perder la inserción local en Room.
             try {
                 oportunidadDao.insertarOportunidad(oportunidad)
             } catch (ex: Exception) {
@@ -58,6 +64,7 @@ class OportunidadRepository(
         }
     }
 
+    // Enviamos las modificaciones mediante un verbo PUT al backend y refrescamos los datos locales en Room.
     suspend fun actualizarOportunidad(oportunidad: Oportunidad) = withContext(Dispatchers.IO) {
         try {
             api.actualizarOportunidad(oportunidad.id, oportunidad)
@@ -71,6 +78,7 @@ class OportunidadRepository(
         }
     }
 
+    // Ejecutamos el borrado físico tanto en la API remota como en la base de datos Room.
     suspend fun eliminarOportunidad(oportunidad: Oportunidad) = withContext(Dispatchers.IO) {
         try {
             if (oportunidad.id > 0) {

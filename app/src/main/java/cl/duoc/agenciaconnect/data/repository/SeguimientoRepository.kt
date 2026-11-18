@@ -8,17 +8,22 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 
+// Repositorio híbrido para la bitácora de Seguimientos comerciales.
+// Sincronizamos las acciones y gestiones vinculadas a cada oportunidad con el servidor.
 class SeguimientoRepository(
     private val seguimientoDao: SeguimientoDao,
     private val api: AgenciaApi = RetrofitClient.retrofit.create(AgenciaApi::class.java)
 ) {
 
+    // Obtenemos las gestiones reactivas asociadas a una oportunidad específica.
     fun obtenerSeguimientosPorOportunidad(oportunidadId: Long): Flow<List<Seguimiento>> {
         return seguimientoDao.obtenerSeguimientosPorOportunidad(oportunidadId)
     }
 
+    // Exponemos el historial completo de gestiones para vistas globales.
     val todosLosSeguimientos: Flow<List<Seguimiento>> = seguimientoDao.obtenerTodosLosSeguimientos()
 
+    // Sincronizamos la bitácora histórica desde la API remota guardando registros sin duplicar.
     suspend fun sincronizarDesdeApi() = withContext(Dispatchers.IO) {
         try {
             val listaApi = api.obtenerSeguimientos()
@@ -39,6 +44,7 @@ class SeguimientoRepository(
         }
     }
 
+    // Registramos la gestión comercial enviando POST a Retrofit e insertando la respuesta en Room.
     suspend fun insertarSeguimiento(seguimiento: Seguimiento): Long = withContext(Dispatchers.IO) {
         try {
             val response = api.crearSeguimiento(seguimiento)
@@ -55,6 +61,7 @@ class SeguimientoRepository(
                 seguimientoDao.insertarSeguimiento(seguimiento)
             }
         } catch (e: Exception) {
+            // Guardamos localmente el seguimiento en Room ante falta de red.
             try {
                 seguimientoDao.insertarSeguimiento(seguimiento)
             } catch (ex: Exception) {
@@ -63,6 +70,7 @@ class SeguimientoRepository(
         }
     }
 
+    // Actualizamos un registro de seguimiento en la API y en la base local.
     suspend fun actualizarSeguimiento(seguimiento: Seguimiento) = withContext(Dispatchers.IO) {
         try {
             if (seguimiento.id > 0) {
@@ -78,6 +86,7 @@ class SeguimientoRepository(
         }
     }
 
+    // Eliminamos una entrada de seguimiento en la API y en Room.
     suspend fun eliminarSeguimiento(seguimiento: Seguimiento) = withContext(Dispatchers.IO) {
         try {
             if (seguimiento.id > 0) {

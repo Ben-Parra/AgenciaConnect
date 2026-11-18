@@ -77,6 +77,7 @@ fun OrganizacionesRegistradasScreen(
                     items = uiState.organizaciones,
                     key = { organizacion -> organizacion.id }
                 ) { organizacion ->
+                    // Diseñamos la tarjeta estilizada de Organización con franja de acento lateral, píldoras para tipo y rubro, y datos de ubicación y sitio web agrupados.
                     ElevatedCard(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),

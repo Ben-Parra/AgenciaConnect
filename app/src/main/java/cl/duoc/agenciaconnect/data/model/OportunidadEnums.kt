@@ -2,7 +2,9 @@ package cl.duoc.agenciaconnect.data.model
 
 import com.google.gson.annotations.SerializedName
 
-// Con estos enums tipamos los atributos de las oportunidades comerciales.
+// Definimos los enums para tipar los atributos comerciales de las oportunidades.
+// Utilizamos la anotación @SerializedName con valores alternativos para blindar la deserialización JSON
+// con Gson desde Spring Boot, garantizando compatibilidad con etiquetas legibles y nombres de constantes en mayúsculas.
 
 enum class TipoOportunidad(val etiqueta: String) {
     @SerializedName(value = "Evento corporativo", alternate = ["EVENTO_CORPORATIVO"])
@@ -30,6 +32,7 @@ enum class TipoOportunidad(val etiqueta: String) {
     OTRA_INSTANCIA("Otra instancia");
 
     companion object {
+        // Buscamos la coincidencia del tipo por texto o nombre de constante para asignación flexible.
         fun deEtiqueta(valor: String): TipoOportunidad {
             val v = valor.trim()
             return entries.find { it.etiqueta.equals(v, ignoreCase = true) || it.name.equals(v, ignoreCase = true) }
@@ -49,6 +52,7 @@ enum class PrioridadOportunidad(val etiqueta: String) {
     BAJA("Baja");
 
     companion object {
+        // Mapeamos la prioridad del registro mediante búsqueda insensible a mayúsculas.
         fun deEtiqueta(valor: String): PrioridadOportunidad {
             val v = valor.trim()
             return entries.find { it.etiqueta.equals(v, ignoreCase = true) || it.name.equals(v, ignoreCase = true) }
@@ -68,6 +72,7 @@ enum class PotencialOportunidad(val etiqueta: String) {
     BAJO("Bajo");
 
     companion object {
+        // Mapeamos el nivel de potencial comercial recibido desde la API o interfaz.
         fun deEtiqueta(valor: String): PotencialOportunidad {
             val v = valor.trim()
             return entries.find { it.etiqueta.equals(v, ignoreCase = true) || it.name.equals(v, ignoreCase = true) }
@@ -99,6 +104,7 @@ enum class EstadoOportunidad(val etiqueta: String) {
     OPORTUNIDAD_DESCARTADA("Oportunidad descartada");
 
     companion object {
+        // Mapeamos la etapa del flujo comercial garantizando un valor por defecto seguro.
         fun deEtiqueta(valor: String): EstadoOportunidad {
             val v = valor.trim()
             return entries.find { it.etiqueta.equals(v, ignoreCase = true) || it.name.equals(v, ignoreCase = true) }

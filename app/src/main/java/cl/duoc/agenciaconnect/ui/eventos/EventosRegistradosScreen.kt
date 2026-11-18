@@ -215,6 +215,7 @@ fun EventosRegistradosScreen(
 // COMPOSABLE DE TARJETA INDIVIDUAL REDISEÑADA
 // ────────────────────────────────────────────────────────────────────────────
 
+// Diseñamos la tarjeta estilizada de Evento integrando la imagen renderizada vía ImageDecoder/BitmapFactory, píldora para la organización asociada y datos compactos de fecha y ubicación.
 @Composable
 private fun TarjetaEvento(
     evento: Evento,

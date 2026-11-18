@@ -76,6 +76,7 @@ fun ContactosRegistradosScreen(
                         it.id == contacto.organizacionId
                     }
 
+                    // Diseñamos la tarjeta estilizada de Contacto con franja lateral, píldoras para la empresa vinculada y el par Cargo • Área, organizando los medios de comunicación.
                     ElevatedCard(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),

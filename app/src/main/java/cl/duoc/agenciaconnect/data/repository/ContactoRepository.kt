@@ -8,17 +8,22 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 
+// Repositorio híbrido para la gestión de Contactos comerciales.
+// Sincronizamos las operaciones locales de Room con los endpoints remotos de Spring Boot.
 class ContactoRepository(
     private val contactoDao: ContactoDao,
     private val api: AgenciaApi = RetrofitClient.retrofit.create(AgenciaApi::class.java)
 ) {
 
+    // Exponemos el flujo reactivo de contactos para que los ViewModels y pantallas observen los cambios automáticamente.
     val contactos: Flow<List<Contacto>> = contactoDao.obtenerContactos()
 
+    // Buscamos un contacto específico por su identificador local.
     suspend fun obtenerContactoPorId(id: Long): Contacto? = withContext(Dispatchers.IO) {
         contactoDao.obtenerContactoPorId(id)
     }
 
+    // Consultamos los contactos en el microservicio en un hilo de E/S y persistimos las novedades en Room.
     suspend fun sincronizarDesdeApi() = withContext(Dispatchers.IO) {
         try {
             val listaApi = api.obtenerContactos()
@@ -39,6 +44,7 @@ class ContactoRepository(
         }
     }
 
+    // Persistimos el contacto primero en el servidor vía POST y guardamos la entidad con su ID oficial en Room.
     suspend fun insertarContacto(contacto: Contacto): Long = withContext(Dispatchers.IO) {
         try {
             val response = api.crearContacto(contacto)
@@ -55,6 +61,7 @@ class ContactoRepository(
                 contactoDao.insertarContacto(contacto)
             }
         } catch (e: Exception) {
+            // Respaldamos el contacto en Room en caso de falla de conectividad de red.
             try {
                 contactoDao.insertarContacto(contacto)
             } catch (ex: Exception) {
@@ -63,6 +70,7 @@ class ContactoRepository(
         }
     }
 
+    // Actualizamos los datos del contacto en la API y refrescamos el almacenamiento local.
     suspend fun actualizarContacto(contacto: Contacto) = withContext(Dispatchers.IO) {
         try {
             if (contacto.id > 0) {
@@ -78,6 +86,7 @@ class ContactoRepository(
         }
     }
 
+    // Borramos la entidad tanto en la base de datos remota mediante DELETE como en la BD local.
     suspend fun eliminarContacto(contacto: Contacto) = withContext(Dispatchers.IO) {
         try {
             if (contacto.id > 0) {

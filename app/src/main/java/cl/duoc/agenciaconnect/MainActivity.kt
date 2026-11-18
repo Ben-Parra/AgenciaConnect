@@ -555,7 +555,8 @@ fun PantallaLoginAdmin(
     }
 }
 
-// Con esta función mostramos el panel principal, un dashboard interactivo de resumen en tiempo real según el rol.
+// Renderizamos la pantalla del panel administrativo principal (Dashboard).
+// Evaluamos el rol del usuario autenticado (Supervisor vs Ejecutivo) y distribuimos las métricas reactivas en tiempo real.
 @Composable
 fun PantallaAdmin(
     usuario: cl.duoc.agenciaconnect.data.model.Usuario?,
@@ -708,7 +709,7 @@ fun PantallaAdmin(
     }
 }
 
-// Con este composable auxiliar diseñamos cada tarjeta interactiva del Dashboard.
+// Construimos cada tarjeta interactiva del Dashboard con su contenedor circular, conteo en tiempo real e indicador de navegación.
 @Composable
 private fun TarjetaDashboardModulo(
     titulo: String,
