@@ -9,14 +9,18 @@ import cl.duoc.agenciaconnect.data.model.Contacto
 import cl.duoc.agenciaconnect.data.model.Organizacion
 import cl.duoc.agenciaconnect.data.repository.ContactoRepository
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkConstructor
 import io.mockk.mockkObject
+import io.mockk.mockkStatic
+import io.mockk.unmockkAll
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -47,12 +51,11 @@ class ContactosViewModelTest {
         id = id, nombreCompleto = "Camila Pérez", organizacionId = 1L,
         cargo = "Jefa RRHH", area = "Recursos Humanos",
         correo = "cperez@empresa.cl", telefono = "+56911223344",
-        medioPreferido = "Correo", observaciones = ""
+        medioPreferido = "Correo", observaciones = "Notas"
     )
 
     @Before
     fun setUp() {
-        // Organizamos: configuramos mocks para la capa de datos.
         application = mockk(relaxed = true)
         mockContactoDao = mockk(relaxed = true)
         mockOrganizacionDao = mockk(relaxed = true)
@@ -71,70 +74,82 @@ class ContactosViewModelTest {
         viewModel = ContactosViewModel(application)
     }
 
+    @After
+    fun tearDown() {
+        unmockkAll()
+    }
+
+    private fun mockearValidacionesContacto() {
+        mockkStatic("cl.duoc.agenciaconnect.util.ContactoValidacionesKt")
+        every { cl.duoc.agenciaconnect.util.validarNombreContacto(any()) } returns true
+        every { cl.duoc.agenciaconnect.util.validarOrganizacionContacto(any()) } returns true
+        every { cl.duoc.agenciaconnect.util.validarCargoContacto(any()) } returns true
+        every { cl.duoc.agenciaconnect.util.validarAreaContacto(any()) } returns true
+        every { cl.duoc.agenciaconnect.util.validarCorreoContacto(any()) } returns true
+        every { cl.duoc.agenciaconnect.util.validarMedioPreferidoContacto(any()) } returns true
+    }
+
     // ── Estado inicial ────────────────────────────────────────────────────
 
     @Test
     fun estadoInicial_camposVaciosYSinErrores() {
-        // Actuamos.
         val estado = viewModel.uiState.value
-        // Afirmamos.
         assertEquals("", estado.nombreCompleto)
         assertFalse(estado.errorNombreCompleto)
         assertNull(estado.idEnEdicion)
     }
 
-    // ── actualizarNombreCompleto ──────────────────────────────────────────
+    // ── actualizarCampos ──────────────────────────────────────────────────
 
     @Test
-    fun actualizarNombreCompleto_actualizaYLimpiaError() {
-        // Actuamos.
+    fun actualizarCampos_actualizanValoresEnEstado() {
         viewModel.actualizarNombreCompleto("Camila Pérez")
-        // Afirmamos.
-        assertEquals("Camila Pérez", viewModel.uiState.value.nombreCompleto)
-        assertFalse(viewModel.uiState.value.errorNombreCompleto)
+        viewModel.actualizarOrganizacion(1L)
+        viewModel.actualizarCargo("Jefa RRHH")
+        viewModel.actualizarArea("RRHH")
+        viewModel.actualizarCorreo("cperez@empresa.cl")
+        viewModel.actualizarObservaciones("Observación importante")
+
+        val estado = viewModel.uiState.value
+        assertEquals("Camila Pérez", estado.nombreCompleto)
+        assertEquals(1L, estado.organizacionId)
+        assertEquals("Jefa RRHH", estado.cargo)
+        assertEquals("RRHH", estado.area)
+        assertEquals("cperez@empresa.cl", estado.correo)
+        assertEquals("Observación importante", estado.observaciones)
     }
 
     // ── actualizarTelefono ────────────────────────────────────────────────
 
     @Test
     fun actualizarTelefono_sinPrefijo_agregaPrefijo56() {
-        // Organizamos: valor sin "+56".
         viewModel.actualizarTelefono("911223344")
-        // Afirmamos: el ViewModel antepone "+56".
         assertTrue(viewModel.uiState.value.telefono.startsWith("+56"))
     }
 
     @Test
     fun actualizarTelefono_prefijoSolo_esValido() {
-        // Organizamos: solo el prefijo (campo vacío).
         viewModel.actualizarTelefono("+56")
-        // Afirmamos: se acepta como vacío válido.
         assertFalse(viewModel.uiState.value.errorTelefono)
     }
 
     @Test
     fun actualizarTelefono_numeroCompleto_esValido() {
-        // Organizamos: número completo chileno.
         viewModel.actualizarTelefono("+56911223344")
-        // Afirmamos: válido (12 caracteres).
         assertFalse(viewModel.uiState.value.errorTelefono)
     }
 
     @Test
     fun actualizarTelefono_numeroIncompleto_esInvalido() {
-        // Organizamos: número parcial.
         viewModel.actualizarTelefono("+56911")
-        // Afirmamos: inválido.
         assertTrue(viewModel.uiState.value.errorTelefono)
     }
 
-    // ── guardarContacto con campos vacíos ─────────────────────────────────
+    // ── guardarContacto con validaciones ─────────────────────────────────
 
     @Test
     fun guardarContacto_camposVacios_marcaErrores() {
-        // Actuamos.
         viewModel.guardarContacto()
-        // Afirmamos.
         val estado = viewModel.uiState.value
         assertTrue(estado.errorNombreCompleto)
         assertTrue(estado.errorOrganizacion)
@@ -144,100 +159,269 @@ class ContactosViewModelTest {
         assertTrue(estado.errorMedioPreferido)
     }
 
-    // ── guardarContacto correo vacío ──────────────────────────────────────
+    @Test
+    fun guardarContacto_organizacionInexistente_marcaErrorOrganizacion() {
+        mockearValidacionesContacto()
+
+        viewModel.actualizarNombreCompleto("Camila Pérez")
+        viewModel.actualizarOrganizacion(999L) // Org que no existe en el estado.
+        viewModel.actualizarCargo("Jefa RRHH")
+        viewModel.actualizarArea("RRHH")
+        viewModel.actualizarCorreo("cperez@empresa.cl")
+        viewModel.actualizarMedioPreferido("Correo")
+
+        viewModel.guardarContacto()
+
+        assertTrue(viewModel.uiState.value.errorOrganizacion)
+        assertEquals("Selecciona una organización registrada.", viewModel.uiState.value.mensaje)
+    }
 
     @Test
-    fun guardarContacto_correoVacio_marcaErrorCorreo() {
-        // Organizamos: llenamos todo menos el correo.
+    fun guardarContacto_camposValidosNuevo_llamaInsertarContacto() = runTest {
+        mockearValidacionesContacto()
+        coEvery { anyConstructed<ContactoRepository>().insertarContacto(any()) } returns 1L
+
         viewModel.actualizarNombreCompleto("Camila Pérez")
         viewModel.actualizarOrganizacion(1L)
         viewModel.actualizarCargo("Jefa RRHH")
-        viewModel.actualizarArea("Recursos Humanos")
-        viewModel.actualizarCorreo("")
+        viewModel.actualizarArea("RRHH")
+        viewModel.actualizarCorreo("cperez@empresa.cl")
         viewModel.actualizarMedioPreferido("Correo")
-        // Actuamos.
+
         viewModel.guardarContacto()
-        // Afirmamos: error en correo vacío.
-        assertTrue(viewModel.uiState.value.errorCorreo)
+        advanceUntilIdle()
+
+        coVerify { anyConstructed<ContactoRepository>().insertarContacto(any()) }
+        assertEquals("Contacto registrado correctamente.", viewModel.uiState.value.mensaje)
     }
 
-    // ── editarContacto ────────────────────────────────────────────────────
+    @Test
+    fun guardarContacto_camposValidosEdicion_llamaActualizarContacto() = runTest {
+        mockearValidacionesContacto()
+        coEvery { anyConstructed<ContactoRepository>().actualizarContacto(any()) } returns Unit
+
+        viewModel.editarContacto(contacto(id = 10L))
+        viewModel.actualizarNombreCompleto("Camila Pérez Actualizada")
+
+        viewModel.guardarContacto()
+        advanceUntilIdle()
+
+        coVerify { anyConstructed<ContactoRepository>().actualizarContacto(any()) }
+        assertEquals("Contacto actualizado correctamente.", viewModel.uiState.value.mensaje)
+    }
+
+    @Test
+    fun guardarContacto_excepcionRepositorio_muestraMensajeError() = runTest {
+        mockearValidacionesContacto()
+        coEvery { anyConstructed<ContactoRepository>().insertarContacto(any()) } throws RuntimeException("Error BD")
+
+        viewModel.actualizarNombreCompleto("Camila Pérez")
+        viewModel.actualizarOrganizacion(1L)
+        viewModel.actualizarCargo("Jefa RRHH")
+        viewModel.actualizarArea("RRHH")
+        viewModel.actualizarCorreo("cperez@empresa.cl")
+        viewModel.actualizarMedioPreferido("Correo")
+
+        viewModel.guardarContacto()
+        advanceUntilIdle()
+
+        assertEquals("No se pudo guardar el contacto. Inténtalo nuevamente.", viewModel.uiState.value.mensaje)
+    }
+
+    // ── editarContacto / cancelarEdicion ─────────────────────────────────
 
     @Test
     fun editarContacto_cargaDatosEnFormulario() {
-        // Organizamos.
         val c = contacto(id = 8L)
-        // Actuamos.
         viewModel.editarContacto(c)
-        // Afirmamos.
         val estado = viewModel.uiState.value
         assertEquals("Camila Pérez", estado.nombreCompleto)
         assertEquals(8L, estado.idEnEdicion)
     }
 
-    // ── cancelarEdicion ───────────────────────────────────────────────────
-
     @Test
     fun cancelarEdicion_limpiaCampos() {
-        // Organizamos.
         viewModel.editarContacto(contacto(id = 3L))
-        // Actuamos.
         viewModel.cancelarEdicion()
-        // Afirmamos.
         assertEquals("", viewModel.uiState.value.nombreCompleto)
         assertNull(viewModel.uiState.value.idEnEdicion)
     }
 
-    // ── solicitarEliminarContacto / cancelarEliminarContacto ──────────────
+    // ── eliminarContacto ──────────────────────────────────────────────────
 
     @Test
     fun solicitarEliminarContacto_estableceContactoPendiente() {
-        // Organizamos.
         val c = contacto(id = 5L)
-        // Actuamos.
         viewModel.solicitarEliminarContacto(c)
-        // Afirmamos.
         assertEquals(c, viewModel.uiState.value.contactoPorEliminar)
     }
 
     @Test
     fun cancelarEliminarContacto_limpiaPendiente() {
-        // Organizamos.
         viewModel.solicitarEliminarContacto(contacto(id = 5L))
-        // Actuamos.
         viewModel.cancelarEliminarContacto()
-        // Afirmamos.
         assertNull(viewModel.uiState.value.contactoPorEliminar)
     }
 
-    // ── confirmarEliminarContacto ─────────────────────────────────────────
-
     @Test
     fun confirmarEliminarContacto_conPendiente_eliminaContacto() = runTest {
-        // Organizamos.
         val c = contacto(id = 6L)
         viewModel.solicitarEliminarContacto(c)
         coEvery { anyConstructed<ContactoRepository>().eliminarContacto(c) } returns Unit
 
-        // Actuamos.
         viewModel.confirmarEliminarContacto()
         advanceUntilIdle()
 
-        // Afirmamos: se limpió el pendiente.
         assertNull(viewModel.uiState.value.contactoPorEliminar)
     }
 
-    // ── nuevoContacto ─────────────────────────────────────────────────────
+    @Test
+    fun confirmarEliminarContacto_excepcion_muestraMensajeError() = runTest {
+        val c = contacto(id = 6L)
+        viewModel.solicitarEliminarContacto(c)
+        coEvery { anyConstructed<ContactoRepository>().eliminarContacto(c) } throws RuntimeException("Error")
+
+        viewModel.confirmarEliminarContacto()
+        advanceUntilIdle()
+
+        assertEquals("No se pudo eliminar el contacto.", viewModel.uiState.value.mensaje)
+    }
+
+    // ── métodos auxiliares de limpieza ────────────────────────────────────
 
     @Test
-    fun nuevoContacto_limpiaCamposYPreCargaPrefijo() {
-        // Organizamos: estado con datos.
-        viewModel.actualizarNombreCompleto("Alguien")
-        viewModel.editarContacto(contacto(id = 1L))
-        // Actuamos.
-        viewModel.nuevoContacto()
-        // Afirmamos.
-        assertEquals("", viewModel.uiState.value.nombreCompleto)
-        assertTrue(viewModel.uiState.value.telefono.startsWith("+56"))
+    fun limpiarMensajes_reseteaMensajeYErrores() {
+        viewModel.guardarContacto() // genera errores
+        viewModel.limpiarMensajes()
+
+        val estado = viewModel.uiState.value
+        assertNull(estado.mensaje)
+        assertFalse(estado.errorNombreCompleto)
+    }
+
+    @Test
+    fun reiniciarFormularioAlSalir_reseteaFormularioYMensaje() {
+        viewModel.actualizarNombreCompleto("Camila")
+        viewModel.reiniciarFormularioAlSalir()
+
+        val estado = viewModel.uiState.value
+        assertEquals("", estado.nombreCompleto)
+        assertNull(estado.mensaje)
+    }
+
+    // ── Pruebas adicionales de ramas ───────────────────────────────────────
+
+    @Test
+    fun editarContacto_cargaTodosLosCamposCorrectamente() {
+        val c = contacto(id = 14L)
+
+        viewModel.editarContacto(c)
+
+        val estado = viewModel.uiState.value
+        assertEquals("Camila Pérez", estado.nombreCompleto)
+        assertEquals(1L, estado.organizacionId)
+        assertEquals("Jefa RRHH", estado.cargo)
+        assertEquals("Recursos Humanos", estado.area)
+        assertEquals("cperez@empresa.cl", estado.correo)
+        assertEquals("+56911223344", estado.telefono)
+        assertEquals("Correo", estado.medioPreferido)
+        assertEquals("Notas", estado.observaciones)
+        assertEquals(14L, estado.idEnEdicion)
+    }
+
+    @Test
+    fun confirmarEliminarContacto_sinPendiente_noHaceNada() = runTest {
+        assertNull(viewModel.uiState.value.contactoPorEliminar)
+
+        viewModel.confirmarEliminarContacto()
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.contactoPorEliminar)
+    }
+
+    @Test
+    fun guardarContacto_cargoVacio_fallaCargo() {
+        mockearValidacionesContacto()
+        every { cl.duoc.agenciaconnect.util.validarCargoContacto("") } returns false
+
+        viewModel.actualizarNombreCompleto("Camila Pérez")
+        viewModel.actualizarOrganizacion(1L)
+        viewModel.actualizarCargo("") // Cargo vacío
+        viewModel.actualizarArea("RRHH")
+        viewModel.actualizarCorreo("cperez@empresa.cl")
+        viewModel.actualizarMedioPreferido("Correo")
+
+        viewModel.guardarContacto()
+
+        assertTrue(viewModel.uiState.value.errorCargo)
+        assertEquals("Revisa los campos obligatorios y el formato del teléfono.", viewModel.uiState.value.mensaje)
+    }
+
+    @Test
+    fun guardarContacto_areaVacia_fallaArea() {
+        mockearValidacionesContacto()
+        every { cl.duoc.agenciaconnect.util.validarAreaContacto("") } returns false
+
+        viewModel.actualizarNombreCompleto("Camila Pérez")
+        viewModel.actualizarOrganizacion(1L)
+        viewModel.actualizarCargo("Jefa RRHH")
+        viewModel.actualizarArea("") // Área vacía
+        viewModel.actualizarCorreo("cperez@empresa.cl")
+        viewModel.actualizarMedioPreferido("Correo")
+
+        viewModel.guardarContacto()
+
+        assertTrue(viewModel.uiState.value.errorArea)
+    }
+
+    @Test
+    fun guardarContacto_correoInvalido_fallaCorreo() {
+        mockearValidacionesContacto()
+        every { cl.duoc.agenciaconnect.util.validarCorreoContacto("") } returns false
+
+        viewModel.actualizarNombreCompleto("Camila Pérez")
+        viewModel.actualizarOrganizacion(1L)
+        viewModel.actualizarCargo("Jefa RRHH")
+        viewModel.actualizarArea("RRHH")
+        viewModel.actualizarCorreo("") // Correo vacío/inválido
+        viewModel.actualizarMedioPreferido("Correo")
+
+        viewModel.guardarContacto()
+
+        assertTrue(viewModel.uiState.value.errorCorreo)
+    }
+
+    @Test
+    fun guardarContacto_medioPreferidoVacio_fallaMedioPreferido() {
+        mockearValidacionesContacto()
+        every { cl.duoc.agenciaconnect.util.validarMedioPreferidoContacto("") } returns false
+
+        viewModel.actualizarNombreCompleto("Camila Pérez")
+        viewModel.actualizarOrganizacion(1L)
+        viewModel.actualizarCargo("Jefa RRHH")
+        viewModel.actualizarArea("RRHH")
+        viewModel.actualizarCorreo("cperez@empresa.cl")
+        viewModel.actualizarMedioPreferido("") // Medio preferido vacío
+
+        viewModel.guardarContacto()
+
+        assertTrue(viewModel.uiState.value.errorMedioPreferido)
+    }
+
+    @Test
+    fun guardarContacto_organizacionIdCero_fallaOrganizacion() {
+        mockearValidacionesContacto()
+        every { cl.duoc.agenciaconnect.util.validarOrganizacionContacto(0L) } returns false
+
+        viewModel.actualizarNombreCompleto("Camila Pérez")
+        viewModel.actualizarOrganizacion(0L) // id Cero
+        viewModel.actualizarCargo("Jefa RRHH")
+        viewModel.actualizarArea("RRHH")
+        viewModel.actualizarCorreo("cperez@empresa.cl")
+        viewModel.actualizarMedioPreferido("Correo")
+
+        viewModel.guardarContacto()
+
+        assertTrue(viewModel.uiState.value.errorOrganizacion)
     }
 }

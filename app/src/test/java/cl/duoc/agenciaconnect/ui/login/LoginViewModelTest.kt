@@ -11,10 +11,13 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkConstructor
 import io.mockk.mockkObject
+import io.mockk.mockkStatic
+import io.mockk.unmockkAll
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -23,15 +26,6 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 
-/**
- * Pruebas unitarias para LoginViewModel.
- *
- * Estrategia de instanciación: como LoginViewModel hereda de AndroidViewModel(application) e
- * invoca AgenciaDatabase.obtenerInstancia(application) en su init, usamos:
- *   - mockk<Application>(relaxed = true) para el contexto.
- *   - mockkObject(AgenciaDatabase) para interceptar obtenerInstancia().
- *   - mockkConstructor(UsuarioRepository::class) para controlar autenticar() y sincronizarDesdeApi().
- */
 @OptIn(ExperimentalCoroutinesApi::class)
 class LoginViewModelTest {
 
@@ -54,7 +48,6 @@ class LoginViewModelTest {
 
     @Before
     fun setUp() {
-        // Organizamos: preparamos mocks de Application, base de datos y DAO.
         application = mockk(relaxed = true)
         mockUsuarioDao = mockk(relaxed = true)
         mockDatabase = mockk(relaxed = true)
@@ -73,14 +66,22 @@ class LoginViewModelTest {
         viewModel = LoginViewModel(application)
     }
 
+    @After
+    fun tearDown() {
+        unmockkAll()
+    }
+
+    private fun mockearValidacionesLogin() {
+        mockkStatic("cl.duoc.agenciaconnect.util.LoginValidacionesKt")
+        every { cl.duoc.agenciaconnect.util.validarCorreoLogin(any()) } returns true
+        every { cl.duoc.agenciaconnect.util.validarContrasenaLogin(any()) } returns true
+    }
+
     // ── Estado inicial ────────────────────────────────────────────────────
 
     @Test
     fun estadoInicial_camposVaciosYSinErrores() {
-        // Actuamos: leemos el estado inicial.
         val estado = viewModel.uiState.value
-
-        // Afirmamos: el formulario comienza limpio.
         assertEquals("", estado.correo)
         assertEquals("", estado.contrasena)
         assertFalse(estado.errorCorreo)
@@ -88,26 +89,18 @@ class LoginViewModelTest {
         assertNull(estado.usuarioAutenticado)
     }
 
-    // ── cambiarCorreo ─────────────────────────────────────────────────────
+    // ── cambiarCorreo / cambiarContrasena ─────────────────────────────────
 
     @Test
     fun cambiarCorreo_actualizaCorreoYLimpiaError() {
-        // Organizamos: simulamos que ya había un error.
-        viewModel.autenticar {} // dispara validación con campos vacíos
-        // Actuamos.
         viewModel.cambiarCorreo("supervisor@agencia.cl")
-        // Afirmamos: el correo se actualiza y el error desaparece.
         assertEquals("supervisor@agencia.cl", viewModel.uiState.value.correo)
         assertFalse(viewModel.uiState.value.errorCorreo)
     }
 
-    // ── cambiarContrasena ─────────────────────────────────────────────────
-
     @Test
     fun cambiarContrasena_actualizaContrasenaYLimpiaError() {
-        // Actuamos.
         viewModel.cambiarContrasena("super123")
-        // Afirmamos.
         assertEquals("super123", viewModel.uiState.value.contrasena)
         assertFalse(viewModel.uiState.value.errorContrasena)
     }
@@ -116,22 +109,17 @@ class LoginViewModelTest {
 
     @Test
     fun cargarCredencialPrueba_estableceAmbosValores() {
-        // Actuamos.
         viewModel.cargarCredencialPrueba("supervisor@agencia.cl", "super123")
-        // Afirmamos.
         val estado = viewModel.uiState.value
         assertEquals("supervisor@agencia.cl", estado.correo)
         assertEquals("super123", estado.contrasena)
     }
 
-    // ── autenticar con campos vacíos ──────────────────────────────────────
+    // ── autenticar con validaciones ──────────────────────────────────────
 
     @Test
     fun autenticar_camposVacios_marcaErroresYNoContinua() {
-        // Organizamos: formulario vacío (estado inicial).
-        // Actuamos.
         viewModel.autenticar {}
-        // Afirmamos: se marcan errores y no se autentica.
         val estado = viewModel.uiState.value
         assertTrue(estado.errorCorreo)
         assertTrue(estado.errorContrasena)
@@ -139,67 +127,65 @@ class LoginViewModelTest {
     }
 
     @Test
-    fun autenticar_correoSinFormatoYContrasenVacia_marcaAmbosErrores() {
-        // Organizamos: correo vacío y contraseña vacía — ambos fallan antes de Patterns.
-        viewModel.cambiarCorreo("")
-        viewModel.cambiarContrasena("")
-        // Actuamos.
-        viewModel.autenticar {}
-        // Afirmamos.
-        val estado = viewModel.uiState.value
-        assertTrue(estado.errorCorreo)
-        assertTrue(estado.errorContrasena)
-    }
+    fun autenticar_supervisorExitoso_llamaCallbackYEstableceUsuario() = runTest {
+        mockearValidacionesLogin()
+        coEvery { anyConstructed<UsuarioRepository>().autenticar("supervisor@agencia.cl", "super123") } returns supervisor
 
-    // ── autenticar exitoso (Supervisor) ───────────────────────────────────
-    // NOTA: android.util.Patterns.EMAIL_ADDRESS es null en la JVM local (stub de Android).
-    // Por eso validarCorreoLogin() siempre devuelve false en tests JVM aunque el correo tenga
-    // formato válido. Probamos la autenticación exitosa inyectando el uiState directamente
-    // para simular que la validación ya pasó, y luego verificando el resultado del DAO.
+        viewModel.cambiarCorreo("supervisor@agencia.cl")
+        viewModel.cambiarContrasena("super123")
+        var exitoLlamado = false
 
-    @Test
-    fun autenticar_camposVaciosCorreoYContrasena_ambosErroresMarcados() {
-        // Organizamos: estado inicial vacío — correo vacío falla isNotEmpty antes de Patterns.
-        // Actuamos.
-        viewModel.autenticar {}
-        // Afirmamos: ambos campos marcados como erróneos.
-        assertTrue(viewModel.uiState.value.errorCorreo)
-        assertTrue(viewModel.uiState.value.errorContrasena)
+        viewModel.autenticar { usuario ->
+            exitoLlamado = true
+            assertEquals(supervisor, usuario)
+        }
+        advanceUntilIdle()
+
+        assertTrue(exitoLlamado)
+        assertEquals(supervisor, viewModel.uiState.value.usuarioAutenticado)
+        assertEquals("", viewModel.uiState.value.mensajeError)
+        assertFalse(viewModel.uiState.value.cargando)
     }
 
     @Test
-    fun autenticar_soloContrasenaVacia_marcaErrorContrasena() {
-        // Organizamos: correo vacío y contraseña vacía — falla isNotEmpty antes de Patterns.
-        viewModel.cambiarCorreo("")
-        viewModel.cambiarContrasena("")
-        // Actuamos.
-        viewModel.autenticar {}
-        // Afirmamos: contraseña marcada como errónea.
-        assertTrue(viewModel.uiState.value.errorContrasena)
-    }
+    fun autenticar_credencialesIncorrectasEnServidor_estableceMensajeError() = runTest {
+        mockearValidacionesLogin()
+        coEvery { anyConstructed<UsuarioRepository>().autenticar(any(), any()) } returns null
 
-    @Test
-    fun autenticar_credencialesIncorrectas_estableceMensajeDeError() = runTest {
-        // Organizamos: correo y contraseña vacíos para que falle la validación local
-        // sin llegar a Patterns (que es null en JVM).
-        viewModel.cambiarCorreo("")
-        viewModel.cambiarContrasena("")
-        // Actuamos.
+        viewModel.cambiarCorreo("invalido@agencia.cl")
+        viewModel.cambiarContrasena("bad123")
+
         viewModel.autenticar {}
         advanceUntilIdle()
-        // Afirmamos: sin usuario autenticado.
+
         assertNull(viewModel.uiState.value.usuarioAutenticado)
+        assertEquals("Correo o contraseña incorrectos. Revisa las cuentas de prueba.", viewModel.uiState.value.mensajeError)
+        assertFalse(viewModel.uiState.value.cargando)
+    }
+
+    @Test
+    fun autenticar_excepcionDeRed_muestraMensajeErrorConexion() = runTest {
+        mockearValidacionesLogin()
+        coEvery { anyConstructed<UsuarioRepository>().autenticar(any(), any()) } throws RuntimeException("Error BD")
+
+        viewModel.cambiarCorreo("supervisor@agencia.cl")
+        viewModel.cambiarContrasena("super123")
+
+        viewModel.autenticar {}
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.usuarioAutenticado)
+        assertEquals("Error al conectar con la base de datos.", viewModel.uiState.value.mensajeError)
+        assertFalse(viewModel.uiState.value.cargando)
     }
 
     @Test
     fun autenticar_rolSupervisor_esCorrecto() {
-        // Verificamos que el modelo de datos del Supervisor tenga el rol correcto.
         assertEquals("SUPERVISOR", supervisor.rol)
     }
 
     @Test
     fun autenticar_rolEjecutivo_esCorrecto() {
-        // Verificamos que el modelo de datos del Ejecutivo tenga el rol correcto.
         assertEquals("EJECUTIVO", ejecutivo.rol)
     }
 
@@ -207,14 +193,11 @@ class LoginViewModelTest {
 
     @Test
     fun cerrarSesion_limpiaTodoElEstado() {
-        // Organizamos: establecemos algunos valores en el estado.
         viewModel.cambiarCorreo("supervisor@agencia.cl")
         viewModel.cambiarContrasena("super123")
 
-        // Actuamos.
         viewModel.cerrarSesion()
 
-        // Afirmamos: estado reseteado completamente.
         val estado = viewModel.uiState.value
         assertEquals("", estado.correo)
         assertEquals("", estado.contrasena)

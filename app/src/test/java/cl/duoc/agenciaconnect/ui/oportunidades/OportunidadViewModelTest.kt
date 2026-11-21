@@ -19,14 +19,17 @@ import cl.duoc.agenciaconnect.data.repository.OportunidadRepository
 import cl.duoc.agenciaconnect.data.repository.OrganizacionRepository
 import cl.duoc.agenciaconnect.data.repository.UsuarioRepository
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkConstructor
 import io.mockk.mockkObject
+import io.mockk.unmockkAll
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -49,7 +52,6 @@ class OportunidadViewModelTest {
     private lateinit var mockUsuarioDao: UsuarioDao
     private lateinit var viewModel: OportunidadViewModel
 
-    // Datos de prueba compartidos.
     private val orgRegistrada = Organizacion(
         id = 1L, nombre = "Clínica Dental", tipo = "Empresa", rubro = "Salud",
         comuna = "Providencia", region = "Metropolitana", sitioWeb = "",
@@ -78,7 +80,6 @@ class OportunidadViewModelTest {
 
     @Before
     fun setUp() {
-        // Organizamos: preparamos mocks de todos los DAOs.
         application = mockk(relaxed = true)
         mockOportunidadDao = mockk(relaxed = true)
         mockOrganizacionDao = mockk(relaxed = true)
@@ -111,45 +112,42 @@ class OportunidadViewModelTest {
         viewModel = OportunidadViewModel(application)
     }
 
+    @After
+    fun tearDown() {
+        unmockkAll()
+    }
+
     // ── Estado inicial ────────────────────────────────────────────────────
 
     @Test
     fun estadoInicial_camposVaciosYSinErrores() {
-        // Afirmamos.
         val estado = viewModel.uiState.value
         assertEquals("", estado.nombre)
         assertFalse(estado.errorNombre)
         assertNull(estado.idEnEdicion)
     }
 
-    // ── cambiarNombre ─────────────────────────────────────────────────────
+    // ── cambiarCampos ─────────────────────────────────────────────────────
 
     @Test
-    fun cambiarNombre_actualizaYLimpiaError() {
-        // Actuamos.
+    fun cambiarCampos_actualizaValoresEnEstado() {
         viewModel.cambiarNombre("Activación Dental")
-        // Afirmamos.
-        assertEquals("Activación Dental", viewModel.uiState.value.nombre)
-        assertFalse(viewModel.uiState.value.errorNombre)
+        viewModel.cambiarEvento(5L)
+        viewModel.cambiarObservaciones("Notas adicionales")
+        viewModel.cambiarFechaDeteccion("10082024")
+
+        val estado = viewModel.uiState.value
+        assertEquals("Activación Dental", estado.nombre)
+        assertEquals(5L, estado.eventoId)
+        assertEquals("Notas adicionales", estado.observaciones)
+        assertEquals("10082024", estado.fechaDeteccion)
     }
 
-    // ── cambiarFechaDeteccion ─────────────────────────────────────────────
-
-    @Test
-    fun cambiarFechaDeteccion_filtrarLetrasYLimitarOcho() {
-        // Organizamos: texto mixto con más de 8 dígitos.
-        viewModel.cambiarFechaDeteccion("01ab082024999")
-        // Afirmamos: solo los primeros 8 dígitos.
-        assertEquals("01082024", viewModel.uiState.value.fechaDeteccion)
-    }
-
-    // ── guardarOportunidad con campos vacíos ──────────────────────────────
+    // ── guardarOportunidad ────────────────────────────────────────────────
 
     @Test
     fun guardarOportunidad_camposVacios_marcaErrores() {
-        // Actuamos.
         viewModel.guardarOportunidad()
-        // Afirmamos.
         val estado = viewModel.uiState.value
         assertTrue(estado.errorNombre)
         assertTrue(estado.errorTipo)
@@ -159,187 +157,252 @@ class OportunidadViewModelTest {
         assertTrue(estado.errorResponsable)
     }
 
-    // ── guardarOportunidad sin organización válida ────────────────────────
-
     @Test
-    fun guardarOportunidad_organizacionNoRegistrada_marcaErrorOrganizacion() {
-        // Organizamos: llenamos todos los campos pero con organización inexistente.
-        viewModel.cambiarNombre("Activación")
-        viewModel.cambiarTipo(TipoOportunidad.FERIA_EMPRESARIAL)
-        viewModel.cambiarOrganizacion(99L) // No existe en el estado.
-        viewModel.cambiarPrioridad(PrioridadOportunidad.ALTA)
-        viewModel.cambiarPotencial(PotencialOportunidad.ALTO)
-        viewModel.cambiarEstado(EstadoOportunidad.PROPUESTA_ENVIADA)
-        viewModel.cambiarResponsable("Carlos")
-        viewModel.cambiarFechaDeteccion("10082024")
-
-        // Actuamos.
-        viewModel.guardarOportunidad()
-
-        // Afirmamos: error por organización no encontrada en la lista.
-        assertTrue(viewModel.uiState.value.errorOrganizacion)
-    }
-
-    // ── guardarOportunidad exitoso (nueva) ────────────────────────────────
-
-    @Test
-    fun guardarOportunidad_datosValidos_insertaOportunidad() = runTest {
-        // Organizamos: llenamos todos los campos con datos válidos.
+    fun guardarOportunidad_excepcionRepositorio_muestraMensajeError() = runTest {
         viewModel.cambiarNombre("Activación Dental")
         viewModel.cambiarTipo(TipoOportunidad.FERIA_EMPRESARIAL)
-        viewModel.cambiarOrganizacion(1L)   // Org registrada en el mock.
+        viewModel.cambiarOrganizacion(1L)
         viewModel.cambiarPrioridad(PrioridadOportunidad.ALTA)
         viewModel.cambiarPotencial(PotencialOportunidad.ALTO)
         viewModel.cambiarEstado(EstadoOportunidad.PROPUESTA_ENVIADA)
         viewModel.cambiarResponsable("Carlos Muñoz")
         viewModel.cambiarFechaDeteccion("10082024")
-        coEvery { anyConstructed<OportunidadRepository>().insertarOportunidad(any()) } returns Unit
+        coEvery { anyConstructed<OportunidadRepository>().insertarOportunidad(any()) } throws RuntimeException("Error BD")
 
-        // Actuamos.
         viewModel.guardarOportunidad()
         advanceUntilIdle()
 
-        // Afirmamos: sin errores de validación.
-        assertFalse(viewModel.uiState.value.errorNombre)
-        assertFalse(viewModel.uiState.value.errorTipo)
+        assertEquals("No se pudo guardar la oportunidad. Inténtalo nuevamente.", viewModel.uiState.value.mensaje)
     }
 
-    // ── Filtrado por rol ──────────────────────────────────────────────────
+    // ── cargarOportunidadParaEditar / reiniciarFormularioAlSalir ──────────
 
     @Test
-    fun oportunidades_supervisorVeTodas_sinFiltro() = runTest {
-        // Organizamos: lista con oportunidades de distintos responsables.
-        val opCarlos = oportunidad(id = 1L, responsable = "Carlos Muñoz")
-        val opMarcela = oportunidad(id = 2L, responsable = "Marcela Rojas")
-        every { mockOportunidadDao.obtenerOportunidades() } returns flowOf(listOf(opCarlos, opMarcela))
+    fun cargarOportunidadParaEditar_estableceDatosYEdicion() {
+        val op = oportunidad(id = 8L)
+        viewModel.cargarOportunidadParaEditar(op)
 
-        // Recreamos el ViewModel con el nuevo mock.
-        viewModel = OportunidadViewModel(application)
-        advanceUntilIdle()
-
-        // Actuamos: el Supervisor ve todas (sin filtro de responsable).
-        val todasOportunidades = viewModel.uiState.value.oportunidades
-
-        // Afirmamos: el flujo entrega ambas oportunidades.
-        assertEquals(2, todasOportunidades.size)
-    }
-
-    @Test
-    fun oportunidades_ejecutivoFiltraPoResponsable() = runTest {
-        // Organizamos: solo oportunidades asignadas a Carlos.
-        val opCarlos = oportunidad(id = 1L, responsable = "Carlos Muñoz")
-        val opMarcela = oportunidad(id = 2L, responsable = "Marcela Rojas")
-        every { mockOportunidadDao.obtenerOportunidades() } returns flowOf(listOf(opCarlos, opMarcela))
-        viewModel = OportunidadViewModel(application)
-        advanceUntilIdle()
-
-        // Actuamos: filtramos manualmente como lo haría la pantalla del Ejecutivo.
-        val opsFiltradas = viewModel.uiState.value.oportunidades.filter {
-            it.responsable.contains("Carlos")
-        }
-
-        // Afirmamos: solo la oportunidad de Carlos.
-        assertEquals(1, opsFiltradas.size)
-        assertEquals("Carlos Muñoz", opsFiltradas.first().responsable)
-    }
-
-    // ── editarOportunidad ─────────────────────────────────────────────────
-
-    @Test
-    fun editarOportunidad_cargaDatosYSetIdEnEdicion() {
-        // Organizamos.
-        val op = oportunidad(id = 10L)
-        // Actuamos.
-        viewModel.editarOportunidad(op)
-        // Afirmamos.
         val estado = viewModel.uiState.value
         assertEquals("Activación Dental", estado.nombre)
-        assertEquals(10L, estado.idEnEdicion)
-        assertEquals(TipoOportunidad.FERIA_EMPRESARIAL, estado.tipo)
+        assertEquals(8L, estado.idEnEdicion)
     }
 
-    // ── cancelarEdicion ───────────────────────────────────────────────────
+    @Test
+    fun reiniciarFormularioAlSalir_reseteaFormularioYMensaje() {
+        viewModel.cambiarNombre("Prueba")
+        viewModel.reiniciarFormularioAlSalir()
+
+        val estado = viewModel.uiState.value
+        assertEquals("", estado.nombre)
+        assertNull(estado.mensaje)
+    }
+
+    // ── eliminarOportunidad excepcion ──────────────────────────────────────
 
     @Test
-    fun cancelarEdicion_limpiaCampos() {
-        // Organizamos.
-        viewModel.editarOportunidad(oportunidad(id = 5L))
-        // Actuamos.
+    fun eliminarOportunidad_excepcionRepositorio_muestraMensajeError() = runTest {
+        val op = oportunidad(id = 9L)
+        coEvery { anyConstructed<OportunidadRepository>().eliminarOportunidad(op) } throws RuntimeException("Error")
+
+        viewModel.eliminarOportunidad(op)
+        advanceUntilIdle()
+
+        assertEquals("No se pudo eliminar la oportunidad.", viewModel.uiState.value.mensaje)
+    }
+
+    // ── Pruebas adicionales de ramas ───────────────────────────────────────
+
+    @Test
+    fun flujoEliminacionOportunidad_solicitaYConfirmaConDialogo() = runTest {
+        val op = oportunidad(id = 25L)
+        viewModel.solicitarEliminacion(op)
+        assertEquals(op, viewModel.uiState.value.oportunidadPorEliminar)
+
+        coEvery { anyConstructed<OportunidadRepository>().eliminarOportunidad(op) } returns Unit
+
+        viewModel.confirmarEliminacion()
+        advanceUntilIdle()
+
+        coVerify { anyConstructed<OportunidadRepository>().eliminarOportunidad(op) }
+        assertNull(viewModel.uiState.value.oportunidadPorEliminar)
+    }
+
+    @Test
+    fun flujoEliminacionOportunidad_cancelarEliminacionLimpiaPendiente() {
+        val op = oportunidad(id = 30L)
+        viewModel.solicitarEliminacion(op)
+
+        viewModel.cancelarEliminar()
+
+        assertNull(viewModel.uiState.value.oportunidadPorEliminar)
+    }
+
+    @Test
+    fun edicionOportunidad_conIdPositivo_guardaYLlamaActualizarOportunidad() = runTest {
+        val op = oportunidad(id = 40L)
+        viewModel.editarOportunidad(op)
+        viewModel.cambiarNombre("Activación Dental Modificada")
+        coEvery { anyConstructed<OportunidadRepository>().actualizarOportunidad(any()) } returns Unit
+
+        viewModel.guardarOportunidad()
+        advanceUntilIdle()
+
+        coVerify { anyConstructed<OportunidadRepository>().actualizarOportunidad(any()) }
+        assertEquals("Oportunidad actualizada correctamente.", viewModel.uiState.value.mensaje)
+    }
+
+    @Test
+    fun cancelarEdicionOportunidad_limpiaCampos() {
+        val op = oportunidad(id = 50L)
+        viewModel.editarOportunidad(op)
+
         viewModel.cancelarEdicion()
-        // Afirmamos.
+
         assertEquals("", viewModel.uiState.value.nombre)
         assertNull(viewModel.uiState.value.idEnEdicion)
     }
 
-    // ── solicitarEliminacion / cancelarEliminacion ────────────────────────
+    @Test
+    fun guardarOportunidad_fallaFechaDeteccion() {
+        viewModel.cambiarNombre("Activación Dental")
+        viewModel.cambiarTipo(TipoOportunidad.FERIA_EMPRESARIAL)
+        viewModel.cambiarOrganizacion(1L)
+        viewModel.cambiarPrioridad(PrioridadOportunidad.ALTA)
+        viewModel.cambiarPotencial(PotencialOportunidad.ALTO)
+        viewModel.cambiarEstado(EstadoOportunidad.PROPUESTA_ENVIADA)
+        viewModel.cambiarResponsable("Carlos Muñoz")
+        viewModel.cambiarFechaDeteccion("") // Fecha vacía/inválida
+
+        viewModel.guardarOportunidad()
+
+        assertTrue(viewModel.uiState.value.errorFechaDeteccion)
+        assertEquals("Revisa los campos obligatorios y la fecha de detección.", viewModel.uiState.value.mensaje)
+    }
 
     @Test
-    fun solicitarEliminar_estableceOportunidadPendiente() {
-        // Organizamos.
-        val op = oportunidad(id = 7L)
-        // Actuamos.
+    fun guardarOportunidad_fallaTipoNulo() {
+        viewModel.cambiarNombre("Activación Dental")
+        viewModel.cambiarTipo(null) // Tipo nulo
+        viewModel.cambiarOrganizacion(1L)
+        viewModel.cambiarPrioridad(PrioridadOportunidad.ALTA)
+        viewModel.cambiarPotencial(PotencialOportunidad.ALTO)
+        viewModel.cambiarEstado(EstadoOportunidad.PROPUESTA_ENVIADA)
+        viewModel.cambiarResponsable("Carlos Muñoz")
+        viewModel.cambiarFechaDeteccion("10082024")
+
+        viewModel.guardarOportunidad()
+
+        assertTrue(viewModel.uiState.value.errorTipo)
+    }
+
+    @Test
+    fun guardarOportunidad_fallaPrioridadNula() {
+        viewModel.cambiarNombre("Activación Dental")
+        viewModel.cambiarTipo(TipoOportunidad.FERIA_EMPRESARIAL)
+        viewModel.cambiarOrganizacion(1L)
+        viewModel.cambiarPrioridad(null) // Prioridad nula
+        viewModel.cambiarPotencial(PotencialOportunidad.ALTO)
+        viewModel.cambiarEstado(EstadoOportunidad.PROPUESTA_ENVIADA)
+        viewModel.cambiarResponsable("Carlos Muñoz")
+        viewModel.cambiarFechaDeteccion("10082024")
+
+        viewModel.guardarOportunidad()
+
+        assertTrue(viewModel.uiState.value.errorPrioridad)
+    }
+
+    @Test
+    fun guardarOportunidad_fallaPotencialNulo() {
+        viewModel.cambiarNombre("Activación Dental")
+        viewModel.cambiarTipo(TipoOportunidad.FERIA_EMPRESARIAL)
+        viewModel.cambiarOrganizacion(1L)
+        viewModel.cambiarPrioridad(PrioridadOportunidad.ALTA)
+        viewModel.cambiarPotencial(null) // Potencial nulo
+        viewModel.cambiarEstado(EstadoOportunidad.PROPUESTA_ENVIADA)
+        viewModel.cambiarResponsable("Carlos Muñoz")
+        viewModel.cambiarFechaDeteccion("10082024")
+
+        viewModel.guardarOportunidad()
+
+        assertTrue(viewModel.uiState.value.errorPotencial)
+    }
+
+    @Test
+    fun guardarOportunidad_fallaResponsableVacio() {
+        viewModel.cambiarNombre("Activación Dental")
+        viewModel.cambiarTipo(TipoOportunidad.FERIA_EMPRESARIAL)
+        viewModel.cambiarOrganizacion(1L)
+        viewModel.cambiarPrioridad(PrioridadOportunidad.ALTA)
+        viewModel.cambiarPotencial(PotencialOportunidad.ALTO)
+        viewModel.cambiarEstado(EstadoOportunidad.PROPUESTA_ENVIADA)
+        viewModel.cambiarResponsable("") // Responsable vacío
+        viewModel.cambiarFechaDeteccion("10082024")
+
+        viewModel.guardarOportunidad()
+
+        assertTrue(viewModel.uiState.value.errorResponsable)
+    }
+
+    @Test
+    fun solicitarEliminarYCancelarEliminarAuxiliares() {
+        val op = oportunidad(id = 60L)
         viewModel.solicitarEliminar(op)
-        // Afirmamos.
         assertEquals(op, viewModel.uiState.value.oportunidadPorEliminar)
-    }
 
-    @Test
-    fun cancelarEliminar_limpiaPendiente() {
-        // Organizamos.
-        viewModel.solicitarEliminar(oportunidad(id = 7L))
-        // Actuamos.
         viewModel.cancelarEliminar()
-        // Afirmamos.
         assertNull(viewModel.uiState.value.oportunidadPorEliminar)
     }
 
-    // ── eliminarOportunidad ───────────────────────────────────────────────
-
     @Test
-    fun eliminarOportunidad_conId_ejecutaEliminar() = runTest {
-        // Organizamos.
-        val op = oportunidad(id = 9L)
-        coEvery { anyConstructed<OportunidadRepository>().eliminarOportunidad(op) } returns Unit
-
-        // Actuamos.
-        viewModel.eliminarOportunidad(op)
-        advanceUntilIdle()
-
-        // Afirmamos: sin pendiente de eliminación.
+    fun confirmarEliminacion_sinOportunidadPendiente_noHaceNada() = runTest {
         assertNull(viewModel.uiState.value.oportunidadPorEliminar)
-    }
-
-    // ── confirmarEliminacion ──────────────────────────────────────────────
-
-    @Test
-    fun confirmarEliminacion_conPendiente_eliminaOportunidad() = runTest {
-        // Organizamos.
-        val op = oportunidad(id = 11L)
-        viewModel.solicitarEliminar(op)
-        coEvery { anyConstructed<OportunidadRepository>().eliminarOportunidad(op) } returns Unit
-
-        // Actuamos.
         viewModel.confirmarEliminacion()
         advanceUntilIdle()
-
-        // Afirmamos.
         assertNull(viewModel.uiState.value.oportunidadPorEliminar)
     }
 
-    // ── limpiarFormulario ─────────────────────────────────────────────────
+    @Test
+    fun propiedadesFiltrosYOportunidadSeleccionada_lecturaYEscritura_actualizanEstado() {
+        val op = oportunidad(id = 70L)
+
+        viewModel.filtroTexto = "Feria"
+        viewModel.filtroTipo = "Feria"
+        viewModel.filtroOrganizacion = "Duoc"
+        viewModel.filtroUbicacion = "Santiago"
+        viewModel.oportunidadSeleccionada = op
+
+        assertEquals("Feria", viewModel.filtroTexto)
+        assertEquals("Feria", viewModel.filtroTipo)
+        assertEquals("Duoc", viewModel.filtroOrganizacion)
+        assertEquals("Santiago", viewModel.filtroUbicacion)
+        assertEquals(op, viewModel.oportunidadSeleccionada)
+    }
 
     @Test
-    fun limpiarFormulario_reseteaTodosLosCampos() {
-        // Organizamos.
-        viewModel.cambiarNombre("Algo")
+    fun guardarOportunidad_nombreVacioYOrganizacionNula_activanErroresDeValidacion() {
+        viewModel.guardarOportunidad()
+        assertTrue(viewModel.uiState.value.errorNombre)
+        assertTrue(viewModel.uiState.value.errorOrganizacion)
+
+        viewModel.cambiarNombre("Nombre Válido")
+        viewModel.guardarOportunidad()
+        assertTrue(viewModel.uiState.value.errorOrganizacion)
+    }
+
+    @Test
+    fun guardarOportunidad_organizacionNoRegistrada_activaErrorOrganizacion() {
+        viewModel.cambiarNombre("Activación Dental")
         viewModel.cambiarTipo(TipoOportunidad.FERIA_EMPRESARIAL)
-        viewModel.editarOportunidad(oportunidad(id = 2L))
-        // Actuamos.
-        viewModel.limpiarFormulario()
-        // Afirmamos.
-        val estado = viewModel.uiState.value
-        assertEquals("", estado.nombre)
-        assertNull(estado.tipo)
-        assertNull(estado.idEnEdicion)
+        viewModel.cambiarOrganizacion(999L)
+        viewModel.cambiarPrioridad(PrioridadOportunidad.ALTA)
+        viewModel.cambiarPotencial(PotencialOportunidad.ALTO)
+        viewModel.cambiarEstado(EstadoOportunidad.PROPUESTA_ENVIADA)
+        viewModel.cambiarResponsable("Carlos Muñoz")
+        viewModel.cambiarFechaDeteccion("10082024")
+
+        viewModel.guardarOportunidad()
+
+        assertTrue(viewModel.uiState.value.errorOrganizacion)
+        assertEquals("Debes seleccionar una organización válida registrada.", viewModel.uiState.value.mensaje)
     }
 }

@@ -7,14 +7,17 @@ import cl.duoc.agenciaconnect.data.local.OrganizacionDao
 import cl.duoc.agenciaconnect.data.model.Organizacion
 import cl.duoc.agenciaconnect.data.repository.OrganizacionRepository
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkConstructor
 import io.mockk.mockkObject
+import io.mockk.unmockkAll
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -42,7 +45,6 @@ class OrganizacionViewModelTest {
 
     @Before
     fun setUp() {
-        // Organizamos: preparamos mocks de la capa de datos.
         application = mockk(relaxed = true)
         mockDao = mockk(relaxed = true)
         mockDatabase = mockk(relaxed = true)
@@ -55,167 +57,182 @@ class OrganizacionViewModelTest {
         viewModel = OrganizacionViewModel(application)
     }
 
+    @After
+    fun tearDown() {
+        unmockkAll()
+    }
+
     // ── Estado inicial ────────────────────────────────────────────────────
 
     @Test
     fun estadoInicial_camposVaciosYSinErrores() {
-        // Actuamos: leemos el estado.
         val estado = viewModel.uiState.value
-        // Afirmamos.
         assertEquals("", estado.nombre)
         assertFalse(estado.errorNombre)
         assertNull(estado.idEnEdicion)
     }
 
-    // ── cambiarNombre ─────────────────────────────────────────────────────
+    // ── cambiarCampos ─────────────────────────────────────────────────────
 
     @Test
-    fun cambiarNombre_actualizaValorYLimpiaError() {
-        // Actuamos.
+    fun cambiarCampos_actualizanEstado() {
         viewModel.cambiarNombre("Clínica Nueva")
-        // Afirmamos.
-        assertEquals("Clínica Nueva", viewModel.uiState.value.nombre)
-        assertFalse(viewModel.uiState.value.errorNombre)
-    }
+        viewModel.cambiarSitioWeb("www.clinicanueva.cl")
+        viewModel.cambiarObservaciones("Nota de la empresa")
 
-    // ── guardarOrganizacion con campos vacíos ─────────────────────────────
-
-    @Test
-    fun guardarOrganizacion_camposVacios_marcaErrores() {
-        // Actuamos.
-        viewModel.guardarOrganizacion()
-        // Afirmamos: todos los campos obligatorios tienen error.
         val estado = viewModel.uiState.value
-        assertTrue(estado.errorNombre)
-        assertTrue(estado.errorTipo)
-        assertTrue(estado.errorRubro)
-        assertTrue(estado.errorComuna)
-        assertTrue(estado.errorRegion)
-        assertTrue(estado.errorPublicoAsociado)
+        assertEquals("Clínica Nueva", estado.nombre)
+        assertEquals("www.clinicanueva.cl", estado.sitioWeb)
+        assertEquals("Nota de la empresa", estado.observaciones)
     }
 
-    @Test
-    fun guardarOrganizacion_soloNombre_marcaErroresEnCamposRestantes() {
-        // Organizamos: solo nombre.
-        viewModel.cambiarNombre("Clínica Dental")
-        // Actuamos.
-        viewModel.guardarOrganizacion()
-        // Afirmamos: nombre no tiene error pero los demás sí.
-        assertFalse(viewModel.uiState.value.errorNombre)
-        assertTrue(viewModel.uiState.value.errorTipo)
-    }
-
-    // ── guardarOrganizacion exitoso ───────────────────────────────────────
+    // ── guardarOrganizacion ───────────────────────────────────────────────
 
     @Test
-    fun guardarOrganizacion_todosLosValidos_confirmaMensajeExito() = runTest {
-        // Organizamos: llenamos todos los campos.
+    fun guardarOrganizacion_excepcionRepositorio_muestraMensajeError() = runTest {
         viewModel.cambiarNombre("Clínica Dental")
         viewModel.cambiarTipo("Empresa")
         viewModel.cambiarRubro("Salud")
         viewModel.cambiarComuna("Providencia")
         viewModel.cambiarRegion("Metropolitana")
         viewModel.cambiarPublicoAsociado("Colaboradores")
-        coEvery { anyConstructed<OrganizacionRepository>().insertarOrganizacion(any()) } returns 1L
+        coEvery { anyConstructed<OrganizacionRepository>().insertarOrganizacion(any()) } throws RuntimeException("Error BD")
 
-        // Actuamos.
         viewModel.guardarOrganizacion()
         advanceUntilIdle()
 
-        // Afirmamos: mensaje de éxito (el texto puede cambiar al limpiar; verificamos que no hay errores).
-        val estado = viewModel.uiState.value
-        assertFalse(estado.errorNombre)
-        assertFalse(estado.errorTipo)
+        assertEquals("No se pudo guardar la organización. Inténtalo nuevamente.", viewModel.uiState.value.mensaje)
     }
 
-    // ── editarOrganizacion ────────────────────────────────────────────────
+    // ── confirmarEliminacion excepcion ─────────────────────────────────────
 
     @Test
-    fun editarOrganizacion_cargaDatosEnFormulario() {
-        // Organizamos.
-        val o = org(id = 5L)
-        // Actuamos.
+    fun confirmarEliminacion_excepcionRepositorio_muestraMensajeError() = runTest {
+        val o = org(id = 3L)
+        viewModel.solicitarEliminacion(o)
+        coEvery { anyConstructed<OrganizacionRepository>().eliminarOrganizacion(o) } throws RuntimeException("Error")
+
+        viewModel.confirmarEliminacion()
+        advanceUntilIdle()
+
+        assertEquals("No se pudo eliminar la organización.", viewModel.uiState.value.mensaje)
+    }
+
+    // ── reiniciarFormularioAlSalir ────────────────────────────────────────
+
+    @Test
+    fun reiniciarFormularioAlSalir_reseteaFormularioYMensaje() {
+        viewModel.cambiarNombre("Clínica Dental")
+        viewModel.reiniciarFormularioAlSalir()
+
+        val estado = viewModel.uiState.value
+        assertEquals("", estado.nombre)
+        assertNull(estado.mensaje)
+    }
+
+    // ── Pruebas adicionales de ramas ───────────────────────────────────────
+
+    @Test
+    fun edicionOrganizacion_conIdPositivo_guardaYLlamaActualizarOrganizacion() = runTest {
+        val o = org(id = 15L)
         viewModel.editarOrganizacion(o)
-        // Afirmamos.
-        val estado = viewModel.uiState.value
-        assertEquals("Clínica Dental", estado.nombre)
-        assertEquals(5L, estado.idEnEdicion)
+        viewModel.cambiarNombre("Clínica Dental Modificada")
+        coEvery { anyConstructed<OrganizacionRepository>().actualizarOrganizacion(any()) } returns Unit
+
+        viewModel.guardarOrganizacion()
+        advanceUntilIdle()
+
+        coVerify { anyConstructed<OrganizacionRepository>().actualizarOrganizacion(any()) }
     }
 
-    // ── cancelarEdicion ───────────────────────────────────────────────────
-
     @Test
-    fun cancelarEdicion_limpiaCamposYIdEnEdicion() {
-        // Organizamos: cargamos una org para editar.
-        viewModel.editarOrganizacion(org(id = 5L))
-        // Actuamos.
+    fun edicionOrganizacion_cancelarEdicionLimpiaFormulario() {
+        viewModel.editarOrganizacion(org(id = 18L))
+
         viewModel.cancelarEdicion()
-        // Afirmamos.
+
         assertEquals("", viewModel.uiState.value.nombre)
         assertNull(viewModel.uiState.value.idEnEdicion)
     }
 
-    // ── solicitarEliminacion / cancelarEliminacion ────────────────────────
-
     @Test
-    fun solicitarEliminacion_guardaOrganizacionPendiente() {
-        // Organizamos.
-        val o = org(id = 3L)
-        // Actuamos.
+    fun cancelarEliminacionOrganizacion_limpiaEstadoPendiente() {
+        val o = org(id = 22L)
         viewModel.solicitarEliminacion(o)
-        // Afirmamos.
-        assertEquals(o, viewModel.uiState.value.organizacionPorEliminar)
-    }
 
-    @Test
-    fun cancelarEliminacion_limpiaPendiente() {
-        // Organizamos.
-        viewModel.solicitarEliminacion(org(id = 3L))
-        // Actuamos.
         viewModel.cancelarEliminacion()
-        // Afirmamos.
+
         assertNull(viewModel.uiState.value.organizacionPorEliminar)
     }
 
-    // ── confirmarEliminacion ──────────────────────────────────────────────
-
     @Test
-    fun confirmarEliminacion_sinPendiente_noLanzaExcepcion() = runTest {
-        // Organizamos: sin pendiente.
-        // Actuamos y afirmamos: no lanza excepción.
-        viewModel.confirmarEliminacion()
-        advanceUntilIdle()
+    fun guardarOrganizacion_tipoVacio_fallaTipo() {
+        viewModel.cambiarNombre("Clínica Dental")
+        viewModel.cambiarTipo("") // Tipo vacío
+        viewModel.cambiarRubro("Salud")
+        viewModel.cambiarComuna("Providencia")
+        viewModel.cambiarRegion("Metropolitana")
+        viewModel.cambiarPublicoAsociado("Colaboradores")
+
+        viewModel.guardarOrganizacion()
+
+        assertTrue(viewModel.uiState.value.errorTipo)
+        assertEquals("Completa los campos obligatorios.", viewModel.uiState.value.mensaje)
     }
 
     @Test
-    fun confirmarEliminacion_conPendiente_ejecutaEliminar() = runTest {
-        // Organizamos: configuramos la org pendiente.
-        val o = org(id = 3L)
-        viewModel.solicitarEliminacion(o)
-        coEvery { anyConstructed<OrganizacionRepository>().eliminarOrganizacion(o) } returns Unit
-
-        // Actuamos.
-        viewModel.confirmarEliminacion()
-        advanceUntilIdle()
-
-        // Afirmamos: se limpió el pendiente.
-        assertNull(viewModel.uiState.value.organizacionPorEliminar)
-    }
-
-    // ── limpiarFormulario ─────────────────────────────────────────────────
-
-    @Test
-    fun limpiarFormulario_reseteaTodosLosCampos() {
-        // Organizamos: llenamos el formulario.
-        viewModel.cambiarNombre("Algo")
+    fun guardarOrganizacion_rubroVacio_fallaRubro() {
+        viewModel.cambiarNombre("Clínica Dental")
         viewModel.cambiarTipo("Empresa")
-        viewModel.editarOrganizacion(org(id = 2L))
-        // Actuamos.
-        viewModel.limpiarFormulario()
-        // Afirmamos.
-        val estado = viewModel.uiState.value
-        assertEquals("", estado.nombre)
-        assertEquals("", estado.tipo)
-        assertNull(estado.idEnEdicion)
+        viewModel.cambiarRubro("") // Rubro vacío
+        viewModel.cambiarComuna("Providencia")
+        viewModel.cambiarRegion("Metropolitana")
+        viewModel.cambiarPublicoAsociado("Colaboradores")
+
+        viewModel.guardarOrganizacion()
+
+        assertTrue(viewModel.uiState.value.errorRubro)
+    }
+
+    @Test
+    fun guardarOrganizacion_comunaVacia_fallaComuna() {
+        viewModel.cambiarNombre("Clínica Dental")
+        viewModel.cambiarTipo("Empresa")
+        viewModel.cambiarRubro("Salud")
+        viewModel.cambiarComuna("") // Comuna vacía
+        viewModel.cambiarRegion("Metropolitana")
+        viewModel.cambiarPublicoAsociado("Colaboradores")
+
+        viewModel.guardarOrganizacion()
+
+        assertTrue(viewModel.uiState.value.errorComuna)
+    }
+
+    @Test
+    fun guardarOrganizacion_regionVacia_fallaRegion() {
+        viewModel.cambiarNombre("Clínica Dental")
+        viewModel.cambiarTipo("Empresa")
+        viewModel.cambiarRubro("Salud")
+        viewModel.cambiarComuna("Providencia")
+        viewModel.cambiarRegion("") // Región vacía
+        viewModel.cambiarPublicoAsociado("Colaboradores")
+
+        viewModel.guardarOrganizacion()
+
+        assertTrue(viewModel.uiState.value.errorRegion)
+    }
+
+    @Test
+    fun guardarOrganizacion_publicoAsociadoVacio_fallaPublicoAsociado() {
+        viewModel.cambiarNombre("Clínica Dental")
+        viewModel.cambiarTipo("Empresa")
+        viewModel.cambiarRubro("Salud")
+        viewModel.cambiarComuna("Providencia")
+        viewModel.cambiarRegion("Metropolitana")
+        viewModel.cambiarPublicoAsociado("") // Público vacío
+
+        viewModel.guardarOrganizacion()
+
+        assertTrue(viewModel.uiState.value.errorPublicoAsociado)
     }
 }

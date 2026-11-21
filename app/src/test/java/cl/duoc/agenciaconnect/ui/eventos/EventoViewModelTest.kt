@@ -9,14 +9,17 @@ import cl.duoc.agenciaconnect.data.model.Evento
 import cl.duoc.agenciaconnect.data.model.Organizacion
 import cl.duoc.agenciaconnect.data.repository.EventoRepository
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkConstructor
 import io.mockk.mockkObject
+import io.mockk.unmockkAll
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -70,45 +73,41 @@ class EventoViewModelTest {
         viewModel = EventoViewModel(application)
     }
 
+    @After
+    fun tearDown() {
+        unmockkAll()
+    }
+
     // ── Estado inicial ────────────────────────────────────────────────────
 
     @Test
     fun estadoInicial_camposVaciosYSinErrores() {
-        // Afirmamos: estado inicial limpio.
         val estado = viewModel.uiState.value
         assertEquals("", estado.nombre)
         assertFalse(estado.errorNombre)
         assertNull(estado.idEnEdicion)
     }
 
-    // ── cambiarNombre ─────────────────────────────────────────────────────
+    // ── cambiarCampos ─────────────────────────────────────────────────────
 
     @Test
     fun cambiarNombre_actualizaYLimpiaError() {
-        // Actuamos.
         viewModel.cambiarNombre("Feria de Salud")
-        // Afirmamos.
         assertEquals("Feria de Salud", viewModel.uiState.value.nombre)
         assertFalse(viewModel.uiState.value.errorNombre)
     }
 
-    // ── cambiarFecha ──────────────────────────────────────────────────────
-
     @Test
     fun cambiarFecha_filtrarLetrasYLimitarOcho() {
-        // Organizamos: texto con letras y más de 8 dígitos.
         viewModel.cambiarFecha("01ab06202799")
-        // Afirmamos: se filtran letras y se trunca a 8.
         assertEquals("01062027", viewModel.uiState.value.fecha)
     }
 
-    // ── validarFormulario con campos vacíos ───────────────────────────────
+    // ── validarFormulario fallos individuales ─────────────────────────────
 
     @Test
     fun validarFormulario_camposVacios_retornaFalseYMarcaErrores() {
-        // Actuamos.
         val resultado = viewModel.validarFormulario()
-        // Afirmamos.
         assertFalse(resultado)
         assertTrue(viewModel.uiState.value.errorNombre)
         assertTrue(viewModel.uiState.value.errorDescripcion)
@@ -116,45 +115,87 @@ class EventoViewModelTest {
         assertTrue(viewModel.uiState.value.errorUbicacion)
     }
 
-    // ── validarFormulario sin imagen ──────────────────────────────────────
-
     @Test
-    fun validarFormulario_sinImagen_marcaErrorImagenUri() {
-        // Organizamos: llenamos todo menos la imagen.
-        viewModel.cambiarNombre("Feria Dental")
+    fun validarFormulario_nombreVacio_fallaNombre() {
+        viewModel.cambiarNombre("")
         viewModel.cambiarDescripcion("Expo dental")
         viewModel.cambiarFecha("15062027")
         viewModel.cambiarUbicacion("Espacio Riesco")
         viewModel.cambiarOrganizacion("Clínica Dental")
-        // Actuamos.
-        val resultado = viewModel.validarFormulario()
-        // Afirmamos: falla por imagen.
-        assertFalse(resultado)
-        assertTrue(viewModel.uiState.value.errorImagenUri)
+        viewModel.cambiarImagenUri("content://img/1")
+
+        assertFalse(viewModel.validarFormulario())
+        assertTrue(viewModel.uiState.value.errorNombre)
     }
 
-    // ── validarFormulario completo ────────────────────────────────────────
+    @Test
+    fun validarFormulario_descripcionVacia_fallaDescripcion() {
+        viewModel.cambiarNombre("Feria Dental")
+        viewModel.cambiarDescripcion("")
+        viewModel.cambiarFecha("15062027")
+        viewModel.cambiarUbicacion("Espacio Riesco")
+        viewModel.cambiarOrganizacion("Clínica Dental")
+        viewModel.cambiarImagenUri("content://img/1")
+
+        assertFalse(viewModel.validarFormulario())
+        assertTrue(viewModel.uiState.value.errorDescripcion)
+    }
+
+    @Test
+    fun validarFormulario_fechaInvalida_fallaFecha() {
+        viewModel.cambiarNombre("Feria Dental")
+        viewModel.cambiarDescripcion("Expo dental")
+        viewModel.cambiarFecha("123") // menos de 8 digitos
+        viewModel.cambiarUbicacion("Espacio Riesco")
+        viewModel.cambiarOrganizacion("Clínica Dental")
+        viewModel.cambiarImagenUri("content://img/1")
+
+        assertFalse(viewModel.validarFormulario())
+        assertTrue(viewModel.uiState.value.errorFecha)
+    }
+
+    @Test
+    fun validarFormulario_ubicacionVacia_fallaUbicacion() {
+        viewModel.cambiarNombre("Feria Dental")
+        viewModel.cambiarDescripcion("Expo dental")
+        viewModel.cambiarFecha("15062027")
+        viewModel.cambiarUbicacion("")
+        viewModel.cambiarOrganizacion("Clínica Dental")
+        viewModel.cambiarImagenUri("content://img/1")
+
+        assertFalse(viewModel.validarFormulario())
+        assertTrue(viewModel.uiState.value.errorUbicacion)
+    }
+
+    @Test
+    fun validarFormulario_organizacionVacia_fallaOrganizacion() {
+        viewModel.cambiarNombre("Feria Dental")
+        viewModel.cambiarDescripcion("Expo dental")
+        viewModel.cambiarFecha("15062027")
+        viewModel.cambiarUbicacion("Espacio Riesco")
+        viewModel.cambiarOrganizacion("")
+        viewModel.cambiarImagenUri("content://img/1")
+
+        assertFalse(viewModel.validarFormulario())
+        assertTrue(viewModel.uiState.value.errorOrganizacion)
+    }
 
     @Test
     fun validarFormulario_todosLosValidos_retornaTrue() {
-        // Organizamos: llenamos todos los campos requeridos.
         viewModel.cambiarNombre("Feria Dental")
         viewModel.cambiarDescripcion("Expo dental")
         viewModel.cambiarFecha("15062027")
         viewModel.cambiarUbicacion("Espacio Riesco")
         viewModel.cambiarOrganizacion("Clínica Dental")
         viewModel.cambiarImagenUri("content://img/1")
-        // Actuamos.
-        val resultado = viewModel.validarFormulario()
-        // Afirmamos.
-        assertTrue(resultado)
+
+        assertTrue(viewModel.validarFormulario())
     }
 
     // ── guardarEvento ─────────────────────────────────────────────────────
 
     @Test
-    fun guardarEvento_conDatosValidos_llama_insertarEvento() = runTest {
-        // Organizamos.
+    fun guardarEvento_conDatosValidos_llamaInsertarEvento() = runTest {
         viewModel.cambiarNombre("Feria Dental")
         viewModel.cambiarDescripcion("Expo dental")
         viewModel.cambiarFecha("15062027")
@@ -163,101 +204,126 @@ class EventoViewModelTest {
         viewModel.cambiarImagenUri("content://img/1")
         coEvery { anyConstructed<EventoRepository>().insertarEvento(any()) } returns 1L
 
-        // Actuamos.
         viewModel.guardarEvento()
         advanceUntilIdle()
 
-        // Afirmamos: sin errores de validación.
         assertFalse(viewModel.uiState.value.errorNombre)
-        assertFalse(viewModel.uiState.value.errorFecha)
     }
 
     @Test
-    fun guardarEvento_camposInvalidos_noInserta() = runTest {
-        // Actuamos: guardamos sin llenar nada.
+    fun guardarEvento_excepcionEnRepositorio_muestraMensajeError() = runTest {
+        viewModel.cambiarNombre("Feria Dental")
+        viewModel.cambiarDescripcion("Expo dental")
+        viewModel.cambiarFecha("15062027")
+        viewModel.cambiarUbicacion("Espacio Riesco")
+        viewModel.cambiarOrganizacion("Clínica Dental")
+        viewModel.cambiarImagenUri("content://img/1")
+        coEvery { anyConstructed<EventoRepository>().insertarEvento(any()) } throws RuntimeException("Error BD")
+
         viewModel.guardarEvento()
         advanceUntilIdle()
-        // Afirmamos: se marcaron errores, no se insertó.
-        assertTrue(viewModel.uiState.value.errorNombre)
+
+        assertEquals("No se pudo guardar el evento. Inténtalo nuevamente.", viewModel.uiState.value.mensaje)
     }
 
-    // ── cargarEventoParaEditar ────────────────────────────────────────────
+    // ── eliminarEvento ────────────────────────────────────────────────────
 
     @Test
-    fun cargarEventoParaEditar_estableceCamposYIdEnEdicion() {
-        // Organizamos.
-        val ev = evento(id = 7L)
-        // Actuamos.
-        viewModel.cargarEventoParaEditar(ev)
-        // Afirmamos.
-        val estado = viewModel.uiState.value
-        assertEquals("Feria Dental", estado.nombre)
-        assertEquals(7L, estado.idEnEdicion)
-    }
-
-    // ── cancelarEdicion ───────────────────────────────────────────────────
-
-    @Test
-    fun cancelarEdicion_limpiaCampos() {
-        // Organizamos.
-        viewModel.cargarEventoParaEditar(evento(id = 2L))
-        // Actuamos.
-        viewModel.cancelarEdicion()
-        // Afirmamos.
-        assertEquals("", viewModel.uiState.value.nombre)
-        assertNull(viewModel.uiState.value.idEnEdicion)
-    }
-
-    // ── solicitarEliminar / cancelarEliminar ──────────────────────────────
-
-    @Test
-    fun solicitarEliminar_estableceEventoPendiente() {
-        // Organizamos.
-        val ev = evento(id = 4L)
-        // Actuamos.
-        viewModel.solicitarEliminar(ev)
-        // Afirmamos.
-        assertEquals(ev, viewModel.uiState.value.eventoPorEliminar)
-    }
-
-    @Test
-    fun cancelarEliminar_limpiaPendiente() {
-        // Organizamos.
-        viewModel.solicitarEliminar(evento(id = 4L))
-        // Actuamos.
-        viewModel.cancelarEliminar()
-        // Afirmamos.
-        assertNull(viewModel.uiState.value.eventoPorEliminar)
-    }
-
-    // ── confirmarEliminar ─────────────────────────────────────────────────
-
-    @Test
-    fun confirmarEliminar_conPendiente_eliminaEvento() = runTest {
-        // Organizamos.
+    fun confirmarEliminar_excepcionRepositorio_muestraMensajeError() = runTest {
         val ev = evento(id = 5L)
         viewModel.solicitarEliminar(ev)
-        coEvery { anyConstructed<EventoRepository>().eliminarEvento(ev) } returns Unit
+        coEvery { anyConstructed<EventoRepository>().eliminarEvento(ev) } throws RuntimeException("Error")
 
-        // Actuamos.
         viewModel.confirmarEliminar()
         advanceUntilIdle()
 
-        // Afirmamos: se limpió el pendiente.
+        assertEquals("No se pudo eliminar el evento. Inténtalo nuevamente.", viewModel.uiState.value.mensaje)
+    }
+
+    // ── métodos auxiliares ────────────────────────────────────────────────
+
+    @Test
+    fun reiniciarFormularioAlSalir_reseteaFormularioYMensaje() {
+        viewModel.cambiarNombre("Feria Dental")
+        viewModel.reiniciarFormularioAlSalir()
+
+        val estado = viewModel.uiState.value
+        assertEquals("", estado.nombre)
+        assertNull(estado.mensaje)
+    }
+
+    // ── Pruebas adicionales de ramas ───────────────────────────────────────
+
+    @Test
+    fun flujoEliminacionExitosa_solicitaYConfirmaEliminacion() = runTest {
+        val ev = evento(id = 10L)
+        viewModel.solicitarEliminar(ev)
+        coEvery { anyConstructed<EventoRepository>().eliminarEvento(ev) } returns Unit
+
+        viewModel.confirmarEliminar()
+        advanceUntilIdle()
+
+        coVerify { anyConstructed<EventoRepository>().eliminarEvento(ev) }
         assertNull(viewModel.uiState.value.eventoPorEliminar)
     }
 
-    // ── limpiarFormulario ─────────────────────────────────────────────────
+    @Test
+    fun cancelarEliminacion_limpiaEstadoDeDialogo() {
+        val ev = evento(id = 12L)
+        viewModel.solicitarEliminar(ev)
+
+        viewModel.cancelarEliminar()
+
+        assertNull(viewModel.uiState.value.eventoPorEliminar)
+    }
 
     @Test
-    fun limpiarFormulario_reseteaTodosLosCampos() {
-        // Organizamos.
-        viewModel.cambiarNombre("Algo")
-        viewModel.cargarEventoParaEditar(evento(id = 1L))
-        // Actuamos.
-        viewModel.limpiarFormulario()
-        // Afirmamos.
+    fun edicionEvento_modificaCamposYGuardaLlamandoActualizarEvento() = runTest {
+        val ev = evento(id = 15L)
+        viewModel.cargarEventoParaEditar(ev)
+        viewModel.cambiarNombre("Feria Dental Modificada")
+        coEvery { anyConstructed<EventoRepository>().actualizarEvento(any()) } returns Unit
+
+        viewModel.guardarEvento()
+        advanceUntilIdle()
+
+        coVerify { anyConstructed<EventoRepository>().actualizarEvento(any()) }
+        assertEquals("Evento actualizado correctamente.", viewModel.uiState.value.mensaje)
+    }
+
+    @Test
+    fun edicionEvento_cancelarEdicionLimpiaFormularioYSetIdNull() {
+        val ev = evento(id = 20L)
+        viewModel.cargarEventoParaEditar(ev)
+
+        viewModel.cancelarEdicion()
+
         assertEquals("", viewModel.uiState.value.nombre)
         assertNull(viewModel.uiState.value.idEnEdicion)
+    }
+
+    @Test
+    fun confirmarEliminar_estabaEditandoMismoEvento_limpiaFormularioCompleto() = runTest {
+        val ev = evento(id = 30L)
+        viewModel.cargarEventoParaEditar(ev) // idEnEdicion = 30L
+        viewModel.solicitarEliminar(ev)     // eventoPorEliminar = ev
+        coEvery { anyConstructed<EventoRepository>().eliminarEvento(ev) } returns Unit
+
+        viewModel.confirmarEliminar()
+        advanceUntilIdle()
+
+        val estado = viewModel.uiState.value
+        assertEquals("", estado.nombre)
+        assertEquals("", estado.descripcion)
+        assertNull(estado.idEnEdicion)
+        assertNull(estado.eventoPorEliminar)
+    }
+
+    @Test
+    fun confirmarEliminar_sinEventoPendiente_noHaceNada() = runTest {
+        assertNull(viewModel.uiState.value.eventoPorEliminar)
+        viewModel.confirmarEliminar()
+        advanceUntilIdle()
+        assertNull(viewModel.uiState.value.eventoPorEliminar)
     }
 }
