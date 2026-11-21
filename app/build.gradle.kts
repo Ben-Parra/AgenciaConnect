@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kover)
 }
 
 android {
@@ -35,6 +36,9 @@ android {
     buildFeatures {
         compose = true
     }
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 dependencies {
@@ -55,10 +59,28 @@ dependencies {
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")
     testImplementation(libs.junit)
+    testImplementation("io.mockk:mockk:1.13.12")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.junit)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
+}
+
+kover {
+    reports {
+        filters {
+            includes {
+                classes(
+                    "cl.duoc.agenciaconnect.util.*Validaciones*",
+                    "cl.duoc.agenciaconnect.util.ValidacionesOportunidad*",
+                    "cl.duoc.agenciaconnect.data.repository.*Repository*",
+                    "cl.duoc.agenciaconnect.data.local.OportunidadConverters*",
+                    "cl.duoc.agenciaconnect.ui.*.*ViewModel*"
+                )
+            }
+        }
+    }
 }
