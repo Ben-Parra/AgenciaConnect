@@ -405,4 +405,43 @@ class OportunidadViewModelTest {
         assertTrue(viewModel.uiState.value.errorOrganizacion)
         assertEquals("Debes seleccionar una organización válida registrada.", viewModel.uiState.value.mensaje)
     }
+
+    @Test
+    fun guardarOportunidad_datosValidosNueva_insertaYLimpiaFormulario() = runTest {
+        viewModel.cambiarNombre("Activación Dental")
+        viewModel.cambiarTipo(TipoOportunidad.FERIA_EMPRESARIAL)
+        viewModel.cambiarOrganizacion(1L)
+        viewModel.cambiarPrioridad(PrioridadOportunidad.ALTA)
+        viewModel.cambiarPotencial(PotencialOportunidad.ALTO)
+        viewModel.cambiarEstado(EstadoOportunidad.PROPUESTA_ENVIADA)
+        viewModel.cambiarResponsable("Carlos Muñoz")
+        viewModel.cambiarFechaDeteccion("10082024")
+        coEvery { anyConstructed<OportunidadRepository>().insertarOportunidad(any()) } returns 1L
+
+        viewModel.guardarOportunidad()
+        advanceUntilIdle()
+
+        coVerify { anyConstructed<OportunidadRepository>().insertarOportunidad(any()) }
+        assertEquals("Oportunidad registrada correctamente.", viewModel.uiState.value.mensaje)
+        assertEquals("", viewModel.uiState.value.nombre)
+    }
+
+    @Test
+    fun guardarOportunidad_sinOrganizacionesRegistradas_activaErrorOrganizacion() {
+        every { mockOrganizacionDao.obtenerOrganizaciones() } returns flowOf(emptyList())
+        val vmSinOrgs = OportunidadViewModel(application)
+
+        vmSinOrgs.cambiarNombre("Activación Dental")
+        vmSinOrgs.cambiarTipo(TipoOportunidad.FERIA_EMPRESARIAL)
+        vmSinOrgs.cambiarOrganizacion(1L)
+        vmSinOrgs.cambiarPrioridad(PrioridadOportunidad.ALTA)
+        vmSinOrgs.cambiarPotencial(PotencialOportunidad.ALTO)
+        vmSinOrgs.cambiarEstado(EstadoOportunidad.PROPUESTA_ENVIADA)
+        vmSinOrgs.cambiarResponsable("Carlos Muñoz")
+        vmSinOrgs.cambiarFechaDeteccion("10082024")
+
+        vmSinOrgs.guardarOportunidad()
+
+        assertTrue(vmSinOrgs.uiState.value.errorOrganizacion)
+    }
 }
