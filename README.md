@@ -46,7 +46,7 @@ El proyecto está estructurado siguiendo el patrón **Model - View - ViewModel**
 
 ---
 
-## 🌐 Endpoints Utilizados
+## Endpoints Utilizados
 
 ### 1. Microservicios Propios (Spring Boot REST API)
 Base URL en emulador Android: `http://10.0.2.2:8080/api/`
