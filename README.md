@@ -107,3 +107,14 @@ La solución cuenta con una suite de pruebas unitarias implementada con **JUnit 
   * **Cobertura de Métodos (`Method %`):** `99,09%`
 
 ---
+
+## Generación de APK Firmado (Modo Release)
+
+El ejecutable instalable en modo `release` fue generado y firmado digitalmente desde Android Studio (**Build > Generate Signed App Bundle / APK... > APK**) utilizando un almacén de claves de demostración académica (`.jks`, sin contraseñas productivas):
+
+* **Ubicación del APK firmado:** `entregable_apk/app-release.apk`
+* **Ubicación del Keystore (`.jks`):** `entregable_apk/agenciaconnect-demo.jks`
+* **Alias de demostración:** `agenciaconnect-key`
+
+### Evidencia del Proceso de Firma y APK Generado
+![Evidencia APK Firmado](docs/evidencia.docs)
